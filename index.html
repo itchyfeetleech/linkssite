@@ -3,248 +3,122 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hopp's links</title>
-  <meta name="description" content="All of HoppCX's esports trackers and profiles on one minimal page." />
-  <meta property="og:title" content="HoppCX — Esports Links" />
-  <meta property="og:description" content="All of HoppCX's esports trackers and profiles on one minimal page." />
-  <meta property="og:type" content="website" />
+  <title>HoppCX</title>
   <meta name="theme-color" content="#0b0f1a" />
   <style>
     :root {
       --bg: #0b0f1a;
-      --bg-2: #0e1525;
-      --card: #101826;
-      --muted: #9ca3af;
+      --glass: rgba(255,255,255,0.06);
+      --border: rgba(255,255,255,0.18);
       --text: #e5e7eb;
-      --accent: #60a5fa;
-      --accent-2: #a78bfa;
-      --ring: rgba(96,165,250,0.45);
-      --ok: #34d399;
+      --muted: #9ca3af;
+      --g1: rgba(96,165,250,.35);
+      --g2: rgba(167,139,250,.35);
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
       color: var(--text);
-      background: radial-gradient(1200px 800px at 10% -10%, rgba(96,165,250,0.12), transparent 60%),
-                  radial-gradient(1000px 700px at 110% 0%, rgba(167,139,250,0.10), transparent 60%),
+      background: radial-gradient(1100px 700px at 20% -10%, rgba(96,165,250,0.12), transparent 60%),
+                  radial-gradient(900px 600px at 110% 0%, rgba(167,139,250,0.10), transparent 60%),
                   var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
     }
-    .wrap { max-width: 940px; margin: 40px auto 72px; padding: 0 16px; }
-    header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom: 16px; flex-wrap: wrap; }
-    .brand { display:flex; align-items:center; gap:14px; }
-    .avatar { width: 56px; height: 56px; border-radius: 16px; display:grid; place-items:center; font-weight:800; font-size: 20px; letter-spacing: .6px; color:#eaf2ff;
-      background: linear-gradient(160deg, rgba(96,165,250,.25), rgba(167,139,250,.22)); border:1px solid rgba(255,255,255,.08);
-      box-shadow: 0 8px 28px rgba(0,0,0,.35);
+    main.center {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
     }
-    h1 { font-size: clamp(26px, 4vw, 40px); margin: 0; letter-spacing: .2px; }
-    .tagline { color: var(--muted); font-size: 14px; margin-top: 6px; }
+    .wrap { width: 100%; max-width: 560px; text-align: center; }
+    h1 { margin: 0 0 22px; font-size: clamp(28px, 4vw, 40px); letter-spacing: .3px; }
 
-    .grid { display:grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 16px; }
-    @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (min-width: 980px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-
-    .card { position:relative; background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%) border-box,
-                  linear-gradient(135deg, rgba(96,165,250,0.20), rgba(167,139,250,0.20)) padding-box,
-                  var(--card);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 16px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
-      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    .stack { display: grid; gap: 14px; margin-top: 6px; }
+    a.link {
+      position: relative;
+      display: grid; place-items: center;
+      text-decoration: none;
+      color: var(--text);
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      -webkit-backdrop-filter: saturate(160%) blur(10px);
+      backdrop-filter: saturate(160%) blur(10px);
+      font-weight: 800; letter-spacing: .6px;
+      text-transform: uppercase;
+      transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
     }
-    .card:hover { transform: translateY(-2px); box-shadow: 0 14px 40px rgba(0,0,0,0.45); border-color: rgba(96,165,250,0.35); }
-
-    .game { display:flex; align-items:center; gap:12px; margin-bottom: 12px; }
-    .badge { width:38px; height:38px; border-radius: 12px; display:grid; place-items:center; font-weight:800; background: rgba(96,165,250,0.12); border: 1px solid rgba(255,255,255,0.08); }
-    .game-title { font-size: 18px; font-weight: 800; letter-spacing: .3px; }
-    .links { display:flex; flex-wrap:wrap; gap:10px; }
-
-    .btn { display:inline-flex; align-items:center; gap:8px; padding: 9px 12px; border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
-      color: var(--text); text-decoration:none; font-size: 14px; font-weight: 700; letter-spacing: .2px;
-      transition: background .18s ease, border-color .18s ease, transform .06s ease;
+    a.link::after {
+      content: "";
+      position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
+      border: 1px solid transparent;
+      background: linear-gradient(135deg, var(--g1), var(--g2)) border-box;
+      -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      opacity: .65;
     }
-    .btn:hover { background: rgba(255,255,255,0.06); border-color: rgba(96,165,250,0.45); }
-    .btn:active { transform: translateY(1px); }
-    .btn small { color: var(--muted); font-weight: 600; letter-spacing: 0; }
+    a.link:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.28); }
+    a.link:active { transform: translateY(0); }
+    a.link:focus-visible { outline: 2px solid rgba(96,165,250,.45); outline-offset: 3px; }
 
-    .footer { margin-top: 26px; color: var(--muted); font-size: 12px; text-align:center; }
-    .edit-tip { margin-top: 8px; font-size: 13px; color: var(--muted); }
-
-    a:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; border-radius: 10px; }
-
-    .hidden { display:none !important; }
+    /* Small footer muted, optional */
+    footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
   </style>
-  <!--
-    HOW TO CUSTOMIZE
-    1) Replace the URLs in window.LINKS below with your real profile links.
-       Cards with "#" will auto-hide. Keep the keys the same.
-    2) Commit this file as index.html at the repo root.
-    3) Enable GitHub Pages, then set your custom domain to hoppcx.top (and www.hoppcx.top if you want).
-    4) No trackers, no external assets, no analytics.
-  -->
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="brand">
-        <div class="avatar" aria-hidden="true">HC</div>
-        <div>
-          <h1>HoppCX</h1>
-          <p class="tagline">Esports trackers and profiles</p>
-        </div>
-      </div>
-      <div>
-        <button id="copyBtn" class="btn" type="button" title="Copy page link">Copy link</button>
-      </div>
-    </header>
+  <main class="center">
+    <div class="wrap">
+      <h1>HoppCX</h1>
+      <nav class="stack">
+        <a id="faceit" class="link" href="#" target="_blank" rel="noopener noreferrer">FaceIT</a>
+        <a id="leetify" class="link" href="#" target="_blank" rel="noopener noreferrer">Leetify</a>
+        <a id="deadlock" class="link" href="#" target="_blank" rel="noopener noreferrer">Deadlock</a>
+        <a id="valorant" class="link" href="#" target="_blank" rel="noopener noreferrer">Valorant</a>
+        <a id="overwatch" class="link" href="#" target="_blank" rel="noopener noreferrer">Overwatch</a>
+        <a id="marvel" class="link" href="#" target="_blank" rel="noopener noreferrer">Marvel Rivals</a>
+        <a id="youtube" class="link" href="#" target="_blank" rel="noopener noreferrer">YouTube</a>
+      </nav>
+      <footer></footer>
+    </div>
+  </main>
 
-    <section class="grid" id="cards">
-      <!-- FaceIT -->
-      <article class="card" data-key="faceit">
-        <div class="game">
-          <div class="badge">FA</div>
-          <div class="game-title">FaceIT</div>
-        </div>
-        <div class="links">
-          <a id="faceit_main" class="btn" href="#" target="_blank" rel="noopener noreferrer">Profile</a>
-        </div>
-      </article>
-
-      <!-- Leetify -->
-      <article class="card" data-key="leetify">
-        <div class="game">
-          <div class="badge">LE</div>
-          <div class="game-title">Leetify</div>
-        </div>
-        <div class="links">
-          <a id="leetify_main" class="btn" href="#" target="_blank" rel="noopener noreferrer">Profile</a>
-        </div>
-      </article>
-
-      <!-- Deadlock -->
-      <article class="card" data-key="deadlock">
-        <div class="game">
-          <div class="badge">DL</div>
-          <div class="game-title">Deadlock</div>
-        </div>
-        <div class="links">
-          <a id="deadlock_tracker" class="btn" href="#" target="_blank" rel="noopener noreferrer">Tracker</a>
-        </div>
-      </article>
-
-      <!-- Valorant -->
-      <article class="card" data-key="valorant">
-        <div class="game">
-          <div class="badge">VA</div>
-          <div class="game-title">Valorant</div>
-        </div>
-        <div class="links">
-          <a id="valorant_tracker" class="btn" href="#" target="_blank" rel="noopener noreferrer">Tracker</a>
-        </div>
-      </article>
-
-      <!-- Overwatch -->
-      <article class="card" data-key="overwatch">
-        <div class="game">
-          <div class="badge">OW</div>
-          <div class="game-title">Overwatch</div>
-        </div>
-        <div class="links">
-          <a id="overwatch_tracker" class="btn" href="#" target="_blank" rel="noopener noreferrer">Tracker</a>
-        </div>
-      </article>
-
-      <!-- Marvel Rivals -->
-      <article class="card" data-key="marvelRivals">
-        <div class="game">
-          <div class="badge">MR</div>
-          <div class="game-title">Marvel Rivals</div>
-        </div>
-        <div class="links">
-          <a id="marvel_tracker" class="btn" href="#" target="_blank" rel="noopener noreferrer">Tracker</a>
-        </div>
-      </article>
-
-      <!-- YouTube -->
-      <article class="card" data-key="youtube">
-        <div class="game">
-          <div class="badge">YT</div>
-          <div class="game-title">YouTube</div>
-        </div>
-        <div class="links">
-          <a id="youtube_main" class="btn" href="#" target="_blank" rel="noopener noreferrer">Channel</a>
-        </div>
-      </article>
-    </section>
-
-    <p class="edit-tip">Tip: cards auto-hide if a link is left as <code>#</code>. Replace URLs in the config below.</p>
-
-    <footer class="footer">
-      <span id="status" aria-live="polite"></span>
-    </footer>
-  </div>
-
-  <!-- Simple link config. Replace with your real profile URLs. -->
+  <!-- Edit links here. Placeholders keep the buttons visible. -->
   <script>
-    // Common patterns for reference:
+    // Examples (not shown on page):
     // FaceIT: https://www.faceit.com/en/players/YourName
-    // Leetify (Steam): https://leetify.com/app/profile/public/steam/STEAMID64
-    // Valorant (TrackerGG): https://tracker.gg/valorant/profile/riot/NAME%23TAG/overview
-    // Overwatch (TrackerGG): https://tracker.gg/overwatch-2/profile/battlenet/NAME-1234/overview
-    // Deadlock / Marvel Rivals: add your preferred tracker URL when available.
+    // Leetify: https://leetify.com/app/profile/public/steam/STEAMID64
+    // Valorant: https://tracker.gg/valorant/profile/riot/NAME%23TAG/overview
+    // Overwatch: https://tracker.gg/overwatch-2/profile/battlenet/NAME-1234/overview
 
     window.LINKS = {
-      faceit:   "#",  // e.g., https://www.faceit.com/en/players/HoppCX
-      leetify:  "#",  // e.g., https://leetify.com/app/profile/public/steam/7656119XXXXXXXXXX
-      deadlock: "#",  // tracker link when you pick one
-      valorant: "#",  // e.g., https://tracker.gg/valorant/profile/riot/HoppCX%23XXXX/overview
-      overwatch:"#",  // e.g., https://tracker.gg/overwatch-2/profile/battlenet/HoppCX-1234/overview
-      marvelRivals: "#", // add tracker link
-      youtube:  "#"   // e.g., https://youtube.com/@HoppCX
+      faceit:   "#",
+      leetify:  "#",
+      deadlock: "#",
+      valorant: "#",
+      overwatch:"#",
+      marvel:   "#",
+      youtube:  "#"
     };
 
-    (function init(){
+    (function applyLinks(){
       const map = {
-        faceit: 'faceit_main',
-        leetify: 'leetify_main',
-        deadlock: 'deadlock_tracker',
-        valorant: 'valorant_tracker',
-        overwatch: 'overwatch_tracker',
-        marvelRivals: 'marvel_tracker',
-        youtube: 'youtube_main'
+        faceit: 'faceit',
+        leetify: 'leetify',
+        deadlock: 'deadlock',
+        valorant: 'valorant',
+        overwatch: 'overwatch',
+        marvel: 'marvel',
+        youtube: 'youtube'
       };
-
-      for (const [key, btnId] of Object.entries(map)) {
-        const url = (window.LINKS && window.LINKS[key]) || '#';
-        const a = document.getElementById(btnId);
-        const card = document.querySelector(`[data-key="${key}"]`);
-        if (!a || !card) continue;
-        if (!url || url === '#') {
-          card.classList.add('hidden');
-        } else {
-          a.href = url;
-        }
+      for (const [key, id] of Object.entries(map)) {
+        const a = document.getElementById(id);
+        const url = window.LINKS[key];
+        if (a && url && typeof url === 'string') a.href = url;
       }
-
-      // Copy current page URL
-      const copyBtn = document.getElementById('copyBtn');
-      const status = document.getElementById('status');
-      copyBtn?.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(location.href);
-          status.textContent = 'Link copied';
-          setTimeout(() => status.textContent = '', 1800);
-        } catch (e) {
-          status.textContent = 'Copy failed';
-          setTimeout(() => status.textContent = '', 1800);
-        }
-      });
     })();
   </script>
-
-  <noscript>
-    <style>.edit-tip{display:none}</style>
-  </noscript>
 </body>
 </html>
