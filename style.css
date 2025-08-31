@@ -1,0 +1,76 @@
+:root {
+text-transform: uppercase;
+box-shadow: 0 8px 24px var(--shadow);
+transition: transform .12s ease, border-color .2s ease, box-shadow .2s ease, filter .2s ease;
+}
+
+
+/* gradient border accent */
+.link::after {
+content: "";
+position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
+border: 1px solid transparent;
+background: linear-gradient(135deg, rgba(255,255,255,0), var(--accent, rgba(255,255,255,0.45))) border-box;
+-webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+-webkit-mask-composite: xor; mask-composite: exclude;
+opacity: .7;
+}
+
+
+.link:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.28); filter: brightness(1.05); }
+.link:active { transform: translateY(0); }
+.link:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
+
+
+.icon { width: 22px; height: 22px; display: block; }
+
+
+/* copy button */
+.copy {
+border: 1px solid var(--border);
+background: var(--glass);
+color: var(--text);
+border-radius: 12px;
+padding: 0 14px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: .6px;
+cursor: pointer;
+transition: transform .12s ease, border-color .2s ease;
+backdrop-filter: saturate(160%) blur(10px);
+}
+.copy:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.28); }
+.copy:active { transform: translateY(0); }
+.copy:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
+
+
+.hint { color: var(--muted); text-align: center; margin: 14px auto 0; }
+
+
+/* tiny toast */
+.toast {
+position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+background: var(--glass);
+border: 1px solid var(--border);
+color: var(--text);
+padding: 10px 14px;
+border-radius: 12px;
+box-shadow: 0 8px 24px var(--shadow);
+}
+
+
+/* Brand classes set the accent color */
+.brand-faceit { --accent: var(--faceit); }
+.brand-leetify { --accent: var(--leetify); }
+.brand-deadlock { --accent: var(--deadlock); }
+.brand-valorant { --accent: var(--valorant); }
+.brand-overwatch { --accent: var(--overwatch); }
+.brand-marvel { --accent: var(--marvel); }
+.brand-youtube { --accent: var(--youtube); }
+
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+.bg { animation: none; }
+.link-row { animation: none; opacity: 1; transform: none; }
+}
