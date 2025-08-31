@@ -1,124 +1,88 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HoppCX</title>
-  <meta name="theme-color" content="#0b0f1a" />
-  <style>
-    :root {
-      --bg: #0b0f1a;
-      --glass: rgba(255,255,255,0.06);
-      --border: rgba(255,255,255,0.18);
-      --text: #e5e7eb;
-      --muted: #9ca3af;
-      --g1: rgba(96,165,250,.35);
-      --g2: rgba(167,139,250,.35);
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      color: var(--text);
-      background: radial-gradient(1100px 700px at 20% -10%, rgba(96,165,250,0.12), transparent 60%),
-                  radial-gradient(900px 600px at 110% 0%, rgba(167,139,250,0.10), transparent 60%),
-                  var(--bg);
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    }
-    main.center {
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-    }
-    .wrap { width: 100%; max-width: 560px; text-align: center; }
-    h1 { margin: 0 0 22px; font-size: clamp(28px, 4vw, 40px); letter-spacing: .3px; }
+<!doctype html>
+<nav class="stack" aria-label="Profile Links">
+<!-- Row: Faceit -->
+<div class="link-row">
+<a id="faceit" class="link brand-faceit" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/faceit.svg" alt="FaceIT" />
+<span>FaceIT</span>
+</a>
+<button class="copy" data-key="faceit" aria-label="Copy FaceIT link">Copy</button>
+</div>
 
-    .stack { display: grid; gap: 14px; margin-top: 6px; }
-    a.link {
-      position: relative;
-      display: grid; place-items: center;
-      text-decoration: none;
-      color: var(--text);
-      padding: 14px 16px;
-      border-radius: 16px;
-      background: var(--glass);
-      border: 1px solid var(--border);
-      -webkit-backdrop-filter: saturate(160%) blur(10px);
-      backdrop-filter: saturate(160%) blur(10px);
-      font-weight: 800; letter-spacing: .6px;
-      text-transform: uppercase;
-      transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
-      box-shadow: 0 8px 24px rgba(0,0,0,.35);
-    }
-    a.link::after {
-      content: "";
-      position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
-      border: 1px solid transparent;
-      background: linear-gradient(135deg, var(--g1), var(--g2)) border-box;
-      -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor; mask-composite: exclude;
-      opacity: .65;
-    }
-    a.link:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.28); }
-    a.link:active { transform: translateY(0); }
-    a.link:focus-visible { outline: 2px solid rgba(96,165,250,.45); outline-offset: 3px; }
 
-    /* Small footer muted, optional */
-    footer { margin-top: 18px; color: var(--muted); font-size: 12px; }
-  </style>
-</head>
-<body>
-  <main class="center">
-    <div class="wrap">
-      <h1>HoppCX</h1>
-      <nav class="stack">
-        <a id="faceit" class="link" href="#" target="_blank" rel="noopener noreferrer">FaceIT</a>
-        <a id="leetify" class="link" href="#" target="_blank" rel="noopener noreferrer">Leetify</a>
-        <a id="deadlock" class="link" href="#" target="_blank" rel="noopener noreferrer">Deadlock</a>
-        <a id="valorant" class="link" href="#" target="_blank" rel="noopener noreferrer">Valorant</a>
-        <a id="overwatch" class="link" href="#" target="_blank" rel="noopener noreferrer">Overwatch</a>
-        <a id="marvel" class="link" href="#" target="_blank" rel="noopener noreferrer">Marvel Rivals</a>
-        <a id="youtube" class="link" href="#" target="_blank" rel="noopener noreferrer">YouTube</a>
-      </nav>
-      <footer></footer>
-    </div>
-  </main>
+<!-- Row: Leetify -->
+<div class="link-row">
+<a id="leetify" class="link brand-leetify" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/leetify.svg" alt="Leetify" />
+<span>Leetify</span>
+</a>
+<button class="copy" data-key="leetify" aria-label="Copy Leetify link">Copy</button>
+</div>
 
-  <!-- Edit links here. Placeholders keep the buttons visible. -->
-  <script>
-    // Examples (not shown on page):
-    // FaceIT: https://www.faceit.com/en/players/YourName
-    // Leetify: https://leetify.com/app/profile/public/steam/STEAMID64
-    // Valorant: https://tracker.gg/valorant/profile/riot/NAME%23TAG/overview
-    // Overwatch: https://tracker.gg/overwatch-2/profile/battlenet/NAME-1234/overview
 
-    window.LINKS = {
-      faceit:   "#",
-      leetify:  "#",
-      deadlock: "#",
-      valorant: "#",
-      overwatch:"#",
-      marvel:   "#",
-      youtube:  "#"
-    };
+<!-- Row: Deadlock -->
+<div class="link-row">
+<a id="deadlock" class="link brand-deadlock" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/deadlock.svg" alt="Deadlock" />
+<span>Deadlock</span>
+</a>
+<button class="copy" data-key="deadlock" aria-label="Copy Deadlock link">Copy</button>
+</div>
 
-    (function applyLinks(){
-      const map = {
-        faceit: 'faceit',
-        leetify: 'leetify',
-        deadlock: 'deadlock',
-        valorant: 'valorant',
-        overwatch: 'overwatch',
-        marvel: 'marvel',
-        youtube: 'youtube'
-      };
-      for (const [key, id] of Object.entries(map)) {
-        const a = document.getElementById(id);
-        const url = window.LINKS[key];
-        if (a && url && typeof url === 'string') a.href = url;
-      }
-    })();
-  </script>
+
+<!-- Row: Valorant -->
+<div class="link-row">
+<a id="valorant" class="link brand-valorant" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/valorant.svg" alt="Valorant" />
+<span>Valorant</span>
+</a>
+<button class="copy" data-key="valorant" aria-label="Copy Valorant link">Copy</button>
+</div>
+
+
+<!-- Row: Overwatch -->
+<div class="link-row">
+<a id="overwatch" class="link brand-overwatch" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/overwatch.svg" alt="Overwatch" />
+<span>Overwatch</span>
+</a>
+<button class="copy" data-key="overwatch" aria-label="Copy Overwatch link">Copy</button>
+</div>
+
+
+<!-- Row: Marvel Rivals -->
+<div class="link-row">
+<a id="marvel" class="link brand-marvel" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/marvel-rivals.svg" alt="Marvel Rivals" />
+<span>Marvel Rivals</span>
+</a>
+<button class="copy" data-key="marvel" aria-label="Copy Marvel Rivals link">Copy</button>
+</div>
+
+
+<!-- Row: YouTube -->
+<div class="link-row">
+<a id="youtube" class="link brand-youtube" href="#" target="_blank" rel="noopener noreferrer">
+<img class="icon" src="assets/icons/youtube.svg" alt="YouTube" />
+<span>YouTube</span>
+</a>
+<button class="copy" data-key="youtube" aria-label="Copy YouTube link">Copy</button>
+</div>
+</nav>
+
+
+<p class="hint">
+Edit your links in <code>script.js</code>. Icons go in <code>assets/icons/</code>.
+</p>
+</main>
+
+
+<footer class="site-footer" aria-live="polite">
+<span id="toast" class="toast" hidden>Copied</span>
+</footer>
+
+
+<script src="script.js" defer></script>
+<noscript>Enable JavaScript to use theme toggle and copy buttons.</noscript>
 </body>
 </html>
