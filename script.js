@@ -130,6 +130,7 @@ window.addEventListener("DOMContentLoaded", () => {
         let w = 0, h = 0;
         const dpr = Math.max(1, window.devicePixelRatio || 1);
         const obstacles = [];
+        const particles = [];
 
         // simple value noise used to sway particles
         const rand = (x, y) => {
@@ -165,9 +166,15 @@ window.addEventListener("DOMContentLoaded", () => {
             canvas.style.height = h + 'px';
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             captureObstacles();
+
+            const desired = Math.min(Math.round((w * h) / 1500), 400);
+            const diff = desired - particles.length;
+            if (diff > 0) {
+                for (let i = 0; i < diff; i++) particles.push(new Particle());
+            } else if (diff < 0) {
+                particles.length = desired;
+            }
         }
-        window.addEventListener('resize', resize);
-        resize();
 
         class Particle {
             constructor() { this.reset(); }
@@ -216,8 +223,8 @@ window.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        const count = Math.min(Math.round((w * h) / 1500), 400);
-        const particles = Array.from({ length: count }, () => new Particle());
+        window.addEventListener('resize', resize);
+        resize();
 
         let last = performance.now();
         function step(now) {
