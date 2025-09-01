@@ -1,13 +1,13 @@
 :root {
-  --bg: #05070d;
-  --text: #d1d5db;
-  --muted: #6b7280;
-  --glass: rgba(255,255,255,0.04);
-  --border: rgba(255,255,255,0.1);
-  --outline: rgba(96,165,250,.45);
-  --shadow: rgba(0,0,0,.5);
+  --bg: #000000;
+  --text: #e2e8f0;
+  --muted: #4b5563;
+  --glass: rgba(0,0,0,0.4);
+  --border: rgba(255,255,255,0.05);
+  --outline: rgba(96,165,250,.25);
+  --shadow: rgba(0,0,0,.8);
 
-  --brand-color: #e5e7eb;
+  --brand-color: #f3f4f6;
 
   --faceit: #ff5500;
   --leetify: #00e5c0;
@@ -91,7 +91,7 @@ body {
   color: var(--text);
   padding: 14px 20px;
   border-radius: 14px;
-  background: transparent;
+  background: rgba(0,0,0,0.3);
   border: 1px solid var(--border);
   box-shadow: 0 8px 18px var(--shadow), 0 0 0 1px var(--accent, transparent);
   letter-spacing: .3px;
@@ -124,8 +124,8 @@ body {
 @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: rotateX(var(--tiltX)) rotateY(var(--tiltY)); } }
 
 .link:hover {
-  border-color: rgba(255,255,255,0.28);
-  filter: brightness(1.04);
+  border-color: rgba(255,255,255,0.2);
+  filter: brightness(1.02);
 }
 .link:active { transform: rotateX(0deg) rotateY(0deg) scale(.995); }
 .link:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
@@ -150,11 +150,11 @@ body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%);
   transform: translateX(-130%);
   transition: transform .75s ease;
   pointer-events: none;
-  mix-blend-mode: screen;
+  mix-blend-mode: soft-light;
 }
 .link:hover::after { transform: translateX(130%); }
 
