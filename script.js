@@ -152,8 +152,8 @@ window.addEventListener("DOMContentLoaded", () => {
                 this.age = 0;
                 this.rotation = Math.random() * Math.PI * 2;
                 this.spin = (Math.random() - 0.5) * 0.002;
-                // +20% visibility vs previous
-                this.alpha = 0.096 + Math.random() * 0.168;
+                // +130% visibility vs previous
+                this.alpha = (0.096 + Math.random() * 0.168) * 2.3;
                 this.rim = 'rgba(120,120,130,0.18)'; // slightly stronger rim
             }
             update(dt) {
