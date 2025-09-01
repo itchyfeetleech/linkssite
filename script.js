@@ -19,28 +19,6 @@ window.LINKS = {
   });
 })();
 
-// Theme toggle with persistence
-(function themeToggle(){
-  const root = document.documentElement;
-  const btn = document.getElementById('themeToggle');
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-
-  const setTheme = (mode) => {
-    const isLight = mode === 'light';
-    root.setAttribute('data-theme', isLight ? 'light' : 'dark');
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    if (metaTheme) metaTheme.content = isLight ? '#f6f7fb' : '#0b0f1a';
-  };
-
-  const saved = localStorage.getItem('theme');
-  if (saved === 'light' || saved === 'dark') setTheme(saved);
-
-  btn?.addEventListener('click', () => {
-    const next = (root.getAttribute('data-theme') === 'light') ? 'dark' : 'light';
-    setTheme(next);
-  });
-})();
-
 // WebGL background animation
 (function webglBG(){
   const canvas = document.getElementById('bgCanvas');
@@ -116,19 +94,9 @@ window.LINKS = {
   window.addEventListener('resize', resize);
   resize();
 
-  const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  const root = document.documentElement;
-  function setPalette(){
-    const dark = [[96/255,165/255,250/255],[167/255,139/255,250/255]];
-    const light = [[224/255,242/255,254/255],[237/255,233/255,254/255]];
-    const isDark = root.getAttribute('data-theme') === 'dark' || (root.getAttribute('data-theme') !== 'light' && mq.matches);
-    const palette = isDark ? dark : light;
-    gl.uniform3fv(color1Loc, palette[0]);
-    gl.uniform3fv(color2Loc, palette[1]);
-  }
-  mq.addEventListener('change', setPalette);
-  new MutationObserver(setPalette).observe(root, {attributes:true, attributeFilter:['data-theme']});
-  setPalette();
+  const palette = [[96/255,165/255,250/255],[167/255,139/255,250/255]];
+  gl.uniform3fv(color1Loc, palette[0]);
+  gl.uniform3fv(color2Loc, palette[1]);
 
   function render(t){
     gl.uniform1f(timeLoc, t*0.001);
