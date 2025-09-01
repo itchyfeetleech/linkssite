@@ -405,14 +405,14 @@ function initSmoke(){
 
   // Simulation parameters
   const params = {
-    SIM_OVERSAMPLE: isMobile ? 0.5 : 2.0,   // >1.0 increases internal resolution for finer eddies
-    DYE_OVERSAMPLE: isMobile ? 0.5 : 2.0,
+    SIM_OVERSAMPLE: isMobile ? 0.5 : 1.0,   // reduce internal resolution on desktop for perf
+    DYE_OVERSAMPLE: isMobile ? 0.5 : 1.0,
     dtClamp: 1/60,
     dissipationVel: 0.000,
     dissipationDye: 0.006,
-    gravity: 0.45,         // downward accel
-    vorticity: 30.0,
-    pressureIters: isMobile ? 20 : 50,
+    gravity: 0.3,          // downward accel
+    vorticity: 20.0,
+    pressureIters: isMobile ? 15 : 25,
     obstacleInflate: 6     // px
   };
 
@@ -470,9 +470,12 @@ function initSmoke(){
       // Add a thin floor so smoke pools
       ctx2.fillRect(0, sh - Math.max(2, Math.floor(2 * params.SIM_OVERSAMPLE)), sw, sh);
 
-      // Upload to GL
+      // Upload to GL with Y flip so DOM coords match texture space
       gl.bindTexture(gl.TEXTURE_2D, this.obst.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, sw, sh, 0, gl.RED, gl.UNSIGNED_BYTE, ctx2.getImageData(0,0,sw,sh).data);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, sw, sh, 0, gl.RED, gl.UNSIGNED_BYTE,
+        ctx2.getImageData(0,0,sw,sh).data);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     },
 
     step(now){
@@ -537,28 +540,28 @@ function initSmoke(){
       bindTex(P_GRAD, 'u_obstacles',2, this.obst.tex);
       drawTo(this.vel.write.fbo, this.vel.read.w, this.vel.read.h); this.vel.swap();
 
-      // Emit ultra-fine dye and downward velocity along the top in multiple wispy jets
+      // Emit dye and downward velocity along the top in multiple small wispy jets
       const time = now * 0.001;
-      const jets = 7;
+      const jets = 5;
       for (let i=0;i<jets;i++){
         const ph = i / jets;
         const u = 0.1 + 0.8 * ph + 0.05*Math.sin(time*0.9 + i*1.13);
-        const r = 0.025 + 0.015*Math.sin(time*1.7 + i*2.3);
-        const str = 0.9 + 0.4*Math.sin(time*2.1 + i*0.7);
+        const r = 0.015 + 0.010*Math.sin(time*1.7 + i*2.3);
+        const str = 0.7 + 0.3*Math.sin(time*2.1 + i*0.7);
 
         // Velocity brush (downward)
         gl.useProgram(P_BRVEL);
         set2(P_BRVEL, 'u_texel', 1/this.vel.read.w, 1/this.vel.read.h);
         bindTex(P_BRVEL, 'u_target', 0, this.vel.read.tex);
-        set4(P_BRVEL, 'u_brush', u, 0.02, r, 1.0);
-        gl.uniform2f(gl.getUniformLocation(P_BRVEL, 'u_dir'), 0.0, 0.65);
+        set4(P_BRVEL, 'u_brush', u, 0.98, r, 1.0);
+        gl.uniform2f(gl.getUniformLocation(P_BRVEL, 'u_dir'), 0.0, 0.5);
         drawTo(this.vel.write.fbo, this.vel.read.w, this.vel.read.h); this.vel.swap();
 
         // Dye brush
         gl.useProgram(P_BRDYE);
         set2(P_BRDYE, 'u_texel', 1/this.dye.read.w, 1/this.dye.read.h);
         bindTex(P_BRDYE, 'u_target', 0, this.dye.read.tex);
-        set4(P_BRDYE, 'u_brush', u, 0.02, r, str * 0.8);
+        set4(P_BRDYE, 'u_brush', u, 0.98, r, str * 0.8);
         set1(P_BRDYE, 'u_decay', 0.005);
         drawTo(this.dye.write.fbo, this.dye.read.w, this.dye.read.h); this.dye.swap();
       }
