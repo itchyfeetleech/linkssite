@@ -41,36 +41,68 @@ window.LINKS = {
   });
 })();
 
-// Subtle 3D tilt on hover
-(function tilt(){
+// Subtle 3D tilt with spring physics
+function tilt(){
   const links = document.querySelectorAll('.link');
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
+  let orientX = 0, orientY = 0;
+  if (typeof DeviceOrientationEvent !== 'undefined') {
+    window.addEventListener('deviceorientation', (e) => {
+      orientX = clamp(e.beta / 10, -6, 6);
+      orientY = clamp(e.gamma / 10, -8, 8);
+    });
+  }
+
   links.forEach((el) => {
-    let raf = null;
+    let tiltX = 0, tiltY = 0;
+    let targetX = 0, targetY = 0;
+    let vx = 0, vy = 0;
+    let usingPointer = false;
+    let lastTX = 0, lastTY = 0;
+
+    const animate = () => {
+      const tx = usingPointer ? targetX : orientX;
+      const ty = usingPointer ? targetY : orientY;
+
+      const ax = (tx - tiltX) * 0.1;
+      const ay = (ty - tiltY) * 0.1;
+      vx = (vx + ax) * 0.8;
+      vy = (vy + ay) * 0.8;
+      tiltX += vx;
+      tiltY += vy;
+
+      el.style.setProperty('--tiltX', tiltX.toFixed(2) + 'deg');
+      el.style.setProperty('--tiltY', tiltY.toFixed(2) + 'deg');
+      requestAnimationFrame(animate);
+    };
+    animate();
 
     const onMove = (e) => {
       const r = el.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width;
       const py = (e.clientY - r.top) / r.height;
-      const rotY = clamp((px - 0.5) * 8, -8, 8);  // rotateY around vertical axis
-      const rotX = clamp((0.5 - py) * 6, -6, 6);  // rotateX around horizontal axis
-      if (raf) cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        el.style.setProperty('--tiltX', rotX.toFixed(2) + 'deg');
-        el.style.setProperty('--tiltY', rotY.toFixed(2) + 'deg');
-      });
+      const nx = clamp((0.5 - py) * 6, -6, 6);
+      const ny = clamp((px - 0.5) * 8, -8, 8);
+
+      vx += (nx - lastTX) * 0.2;
+      vy += (ny - lastTY) * 0.2;
+      lastTX = nx;
+      lastTY = ny;
+
+      targetX = nx;
+      targetY = ny;
+      usingPointer = true;
     };
 
-    const reset = () => {
-      if (raf) cancelAnimationFrame(raf);
-      el.style.setProperty('--tiltX', '0deg');
-      el.style.setProperty('--tiltY', '0deg');
-    };
+    const onLeave = () => { usingPointer = false; };
 
-    el.addEventListener('mousemove', onMove);
-    el.addEventListener('mouseleave', reset);
-    el.addEventListener('touchstart', reset, {passive:true});
-    el.addEventListener('touchend', reset, {passive:true});
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerleave', onLeave);
+    el.addEventListener('pointerdown', onLeave);
+    el.addEventListener('touchstart', onLeave, {passive:true});
+    el.addEventListener('touchend', onLeave, {passive:true});
   });
-})();
+}
+
+tilt();

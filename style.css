@@ -157,6 +157,7 @@ body {
   text-transform: none;
   box-shadow: 0 8px 18px var(--shadow);
   transform: rotateX(var(--tiltX)) rotateY(var(--tiltY));
+  transform-style: preserve-3d;
   transition: transform .12s ease, border-color .2s ease, filter .2s ease;
   opacity: 0; transform-origin: center;
   animation: enter .5s cubic-bezier(.2,.7,.2,1) both;
@@ -176,7 +177,9 @@ body {
 .link:active { transform: rotateX(0deg) rotateY(0deg) scale(.995); }
 .link:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
 
-.icon { width: 18px; height: 18px; display: block; filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)); }
+.icon { width: 18px; height: 18px; display: block; filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)); transform: translateZ(8px); }
+
+.link span { transform: translateZ(8px); }
 
 /* animated accent ring */
 .link::after {
