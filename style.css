@@ -17,8 +17,12 @@
   --overwatch: #f8b700;
   --marvel: #a78bfa;
   --youtube: #ff0033;
+  --wght-base: 700;
+  --wdth-base: 100;
+  --wght: var(--wght-base);
+  --wdth: var(--wdth-base);
 
-  --font-brand: "Bebas Neue", system-ui, sans-serif;
+  --font-brand: "Manrope", system-ui, sans-serif;
   --font-ui: "Manrope", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial;
 }
 
@@ -30,6 +34,8 @@
   --border: rgba(0,0,0,0.10);
   --outline: rgba(59,130,246,.55);
   --shadow: rgba(0,0,0,.15);
+  --wght-base: 600;
+  --wdth-base: 105;
 }
 
 * { box-sizing: border-box; }
@@ -101,6 +107,13 @@ body {
   color: transparent;
   animation: hue 14s linear infinite;
   position: relative;
+  font-weight: var(--wght);
+  font-variation-settings: "wght" var(--wght), "wdth" var(--wdth);
+  transition: font-variation-settings .6s ease;
+}
+.brand:hover {
+  --wght: calc(var(--wght-base) + 100);
+  --wdth: calc(var(--wdth-base) + 10);
 }
 .brand::after { /* subtle sheen that sweeps across the text */
   content: "";
@@ -153,7 +166,7 @@ body {
   background: var(--glass);
   border: 1px solid var(--border);
   backdrop-filter: saturate(160%) blur(10px);
-  font-weight: 800; letter-spacing: .3px;
+  letter-spacing: .3px;
   text-transform: none;
   box-shadow: 0 8px 18px var(--shadow);
   transform: rotateX(var(--tiltX)) rotateY(var(--tiltY));
@@ -161,6 +174,15 @@ body {
   opacity: 0; transform-origin: center;
   animation: enter .5s cubic-bezier(.2,.7,.2,1) both;
   will-change: transform;
+}
+.link span {
+  font-weight: var(--wght);
+  font-variation-settings: "wght" var(--wght), "wdth" var(--wdth);
+  transition: font-variation-settings .6s ease;
+}
+.link:hover span {
+  --wght: calc(var(--wght-base) + 100);
+  --wdth: calc(var(--wdth-base) + 10);
 }
 .link:nth-child(1) { animation-delay: .05s; }
 .link:nth-child(2) { animation-delay: .10s; }
