@@ -121,13 +121,21 @@ window.addEventListener("DOMContentLoaded", () => {
         requestAnimationFrame(render);
     })();
 
-    // Smoke particle system
+    // Volumetric falling smoke with obstacle interaction
     (function smoke() {
         const canvas = document.getElementById('smokeCanvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         let w = 0, h = 0;
         const DPR = Math.max(1, window.devicePixelRatio || 1);
+        let obstacles = [];
+
+        function updateObstacles() {
+            obstacles = Array.from(document.querySelectorAll('.link')).map(el => {
+                const r = el.getBoundingClientRect();
+                return { x: r.left, y: r.top, w: r.width, h: r.height };
+            });
+        }
 
         function resize() {
             w = window.innerWidth; h = window.innerHeight;
@@ -136,6 +144,7 @@ window.addEventListener("DOMContentLoaded", () => {
             canvas.style.width = w + 'px';
             canvas.style.height = h + 'px';
             ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+            updateObstacles();
         }
         window.addEventListener('resize', resize);
         resize();
@@ -144,39 +153,48 @@ window.addEventListener("DOMContentLoaded", () => {
             constructor() { this.reset(); }
             reset() {
                 this.x = Math.random() * w;
-                this.y = h * (0.6 + Math.random() * 0.4);
-                this.vx = (Math.random() - 0.5) * 0.3;
-                this.vy = - (0.2 + Math.random() * 0.8);
-                this.size = 80 + Math.random() * 120;
-                this.life = 12 + Math.random() * 10;
+                this.y = -Math.random() * h * 0.2 - 50;
+                this.z = Math.random(); // depth
+                this.size = 40 + this.z * 120;
+                this.vx = (Math.random() - 0.5) * 0.4;
+                this.vy = 0.2 + Math.random() * 0.3;
+                this.life = 15 + Math.random() * 15;
                 this.age = 0;
-                this.rotation = Math.random() * Math.PI * 2;
-                this.spin = (Math.random() - 0.5) * 0.002;
-                // +130% visibility vs previous
-                this.alpha = (0.096 + Math.random() * 0.168) * 2.3;
-                this.rim = 'rgba(120,120,130,0.18)'; // slightly stronger rim
+                this.alpha = 0.15 + this.z * 0.25;
             }
             update(dt) {
                 this.age += dt;
-                if (this.age > this.life) { this.reset(); }
+                if (this.y - this.size > h || this.age > this.life) { this.reset(); }
+                this.vy += 0.03 * dt * 60; // gravity
                 this.x += this.vx * dt * 60;
                 this.y += this.vy * dt * 60;
-                this.vx += (Math.random() - 0.5) * 0.01;
-                this.rotation += this.spin * dt * 60;
-                const t = Math.max(0, Math.min(1, this.age / this.life));
-                this.currentAlpha = this.alpha * (1 - t);
+
+                const r = this.size;
+                for (const ob of obstacles) {
+                    const left = ob.x, right = ob.x + ob.w;
+                    const top = ob.y, bottom = ob.y + ob.h;
+                    if (this.x + r > left && this.x - r < right && this.y + r > top && this.y - r < bottom) {
+                        const overlapX = Math.min(right - (this.x - r), (this.x + r) - left);
+                        const overlapY = Math.min(bottom - (this.y - r), (this.y + r) - top);
+                        if (overlapX < overlapY) {
+                            if (this.x < (left + right) / 2) this.x = left - r; else this.x = right + r;
+                            this.vx *= -0.5;
+                        } else {
+                            if (this.y < (top + bottom) / 2) this.y = top - r; else this.y = bottom + r;
+                            this.vy *= -0.5;
+                        }
+                    }
+                }
             }
             draw(ctx) {
                 ctx.save();
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.globalAlpha = this.currentAlpha;
+                ctx.globalAlpha = this.alpha;
                 ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
-                const g = ctx.createRadialGradient(0, 0, this.size * 0.05, 0, 0, this.size);
-                g.addColorStop(0.00, 'rgba(255,255,255,0.85)');
-                g.addColorStop(0.22, 'rgba(255,255,255,0.45)');
-                g.addColorStop(0.55, this.rim);
-                g.addColorStop(1.00, 'rgba(255,255,255,0)');
+                const g = ctx.createRadialGradient(0, 0, this.size * 0.2, 0, 0, this.size);
+                g.addColorStop(0.0, 'rgba(255,255,255,0.6)');
+                g.addColorStop(0.5, 'rgba(200,200,210,0.3)');
+                g.addColorStop(1.0, 'rgba(255,255,255,0)');
                 ctx.fillStyle = g;
                 ctx.beginPath();
                 ctx.arc(0, 0, this.size, 0, Math.PI * 2);
@@ -185,9 +203,8 @@ window.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Particle count scaled up ~20%
-        const baseTarget = Math.round((window.innerWidth * window.innerHeight) / (700 * 200));
-        const COUNT = Math.min(Math.max(Math.round(baseTarget * 1.2), 32), 140);
+        const baseTarget = Math.round((window.innerWidth * window.innerHeight) / (400 * 120));
+        const COUNT = Math.min(Math.max(Math.round(baseTarget * 1.5), 80), 300);
         const particles = Array.from({ length: COUNT }, () => new Particle());
 
         let last = performance.now();
@@ -196,10 +213,10 @@ window.addEventListener("DOMContentLoaded", () => {
             last = now;
 
             ctx.clearRect(0, 0, w, h);
-            // slightly lighter veil to avoid washing out smoke
             ctx.fillStyle = 'rgba(245,246,248,0.05)';
             ctx.fillRect(0, 0, w, h);
 
+            particles.sort((a, b) => a.z - b.z);
             for (let p of particles) { p.update(dt); p.draw(ctx); }
             requestAnimationFrame(step);
         }
