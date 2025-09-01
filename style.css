@@ -1,76 +1,174 @@
 :root {
-text-transform: uppercase;
-box-shadow: 0 8px 24px var(--shadow);
-transition: transform .12s ease, border-color .2s ease, box-shadow .2s ease, filter .2s ease;
+  --bg: #0b0f1a;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --glass: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.18);
+  --outline: rgba(96,165,250,.45);
+  --shadow: rgba(0,0,0,.35);
+
+  /* brand accents */
+  --faceit: #ff5500;
+  --leetify: #00e5c0;
+  --deadlock: #60a5fa;
+  --valorant: #ff4655;
+  --overwatch: #f8b700;
+  --marvel: #a78bfa;
+  --youtube: #ff0033;
 }
 
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --bg: #f6f7fb;
+  --text: #0f172a;
+  --muted: #475569;
+  --glass: rgba(0,0,0,0.03);
+  --border: rgba(0,0,0,0.12);
+  --outline: rgba(59,130,246,.55);
+  --shadow: rgba(0,0,0,.15);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+}
+
+/* Animated gradient background layer */
+.bg {
+  position: fixed;
+  inset: -40vmax;
+  z-index: -1;
+  filter: blur(40px) saturate(130%);
+  background:
+    radial-gradient(40vmax 30vmax at 15% -10%, rgba(96,165,250,0.18), transparent 60%),
+    radial-gradient(40vmax 30vmax at 110% 0%, rgba(167,139,250,0.16), transparent 60%),
+    conic-gradient(from var(--angle, 0deg) at 50% 50%,
+      rgba(255,255,255,0.0), rgba(96,165,250,0.10), rgba(167,139,250,0.10), rgba(255,255,255,0.0) 75%);
+  animation: spin 18s linear infinite;
+}
+@keyframes spin { to { --angle: 360deg; } }
+
+.center {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: 24px;
+}
+
+.site-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  max-width: 720px;
+  margin: 18px auto 0;
+  padding: 0 24px;
+}
+.brand { margin: 0; font-size: clamp(28px, 4vw, 40px); letter-spacing: .3px; }
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  backdrop-filter: saturate(160%) blur(10px);
+}
+.theme-toggle:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
+
+.stack { display: grid; gap: 14px; width: 100%; max-width: 720px; margin: 14px auto 0; }
+
+.link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: rise .5s ease-out both;
+  animation-delay: calc(var(--i, 0) * .08s);
+}
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+.link {
+  position: relative;
+  display: grid; grid-auto-flow: column; align-items: center; justify-content: start; gap: 10px;
+  text-decoration: none;
+  color: var(--text);
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  backdrop-filter: saturate(160%) blur(10px);
+  font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px var(--shadow);
+  transition: transform .12s ease, border-color .2s ease, box-shadow .2s ease, filter .2s ease;
+}
 
 /* gradient border accent */
 .link::after {
-content: "";
-position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
-border: 1px solid transparent;
-background: linear-gradient(135deg, rgba(255,255,255,0), var(--accent, rgba(255,255,255,0.45))) border-box;
--webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
--webkit-mask-composite: xor; mask-composite: exclude;
-opacity: .7;
+  content: "";
+  position: absolute; inset: 0; border-radius: 16px; pointer-events: none;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(255,255,255,0), var(--accent, rgba(255,255,255,0.45))) border-box;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .7;
 }
-
 
 .link:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.28); filter: brightness(1.05); }
 .link:active { transform: translateY(0); }
 .link:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
 
-
 .icon { width: 22px; height: 22px; display: block; }
-
 
 /* copy button */
 .copy {
-border: 1px solid var(--border);
-background: var(--glass);
-color: var(--text);
-border-radius: 12px;
-padding: 0 14px;
-font-weight: 700;
-text-transform: uppercase;
-letter-spacing: .6px;
-cursor: pointer;
-transition: transform .12s ease, border-color .2s ease;
-backdrop-filter: saturate(160%) blur(10px);
+  border: 1px solid var(--border);
+  background: var(--glass);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .2s ease;
+  backdrop-filter: saturate(160%) blur(10px);
 }
 .copy:hover { transform: translateY(-1px); border-color: rgba(255,255,255,0.28); }
 .copy:active { transform: translateY(0); }
 .copy:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
 
-
 .hint { color: var(--muted); text-align: center; margin: 14px auto 0; }
-
 
 /* tiny toast */
 .toast {
-position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
-background: var(--glass);
-border: 1px solid var(--border);
-color: var(--text);
-padding: 10px 14px;
-border-radius: 12px;
-box-shadow: 0 8px 24px var(--shadow);
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px var(--shadow);
 }
 
-
 /* Brand classes set the accent color */
-.brand-faceit { --accent: var(--faceit); }
-.brand-leetify { --accent: var(--leetify); }
-.brand-deadlock { --accent: var(--deadlock); }
-.brand-valorant { --accent: var(--valorant); }
+.brand-faceit    { --accent: var(--faceit); }
+.brand-leetify   { --accent: var(--leetify); }
+.brand-deadlock  { --accent: var(--deadlock); }
+.brand-valorant  { --accent: var(--valorant); }
 .brand-overwatch { --accent: var(--overwatch); }
-.brand-marvel { --accent: var(--marvel); }
-.brand-youtube { --accent: var(--youtube); }
-
+.brand-marvel    { --accent: var(--marvel); }
+.brand-youtube   { --accent: var(--youtube); }
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-.bg { animation: none; }
-.link-row { animation: none; opacity: 1; transform: none; }
+  .bg { animation: none; }
+  .link-row { animation: none; opacity: 1; transform: none; }
 }
