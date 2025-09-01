@@ -1,12 +1,12 @@
 // User links. Replace the '#' with your URLs.
 window.LINKS = {
-  faceit:   "#",
-  leetify:  "#",
-  deadlock: "#",
-  valorant: "#",
-  overwatch:"#",
-  marvel:   "#",
-  youtube:  "#"
+  faceit:   "https://www.faceit.com/en/players/HoppCX",
+  leetify:  "https://leetify.com/app/profile/76561198198305361",
+  deadlock: "https://tracklock.gg/players/238039633",
+  valorant: "https://tracker.gg/valorant/profile/riot/HoppCX%23000/",
+  overwatch:"https://www.overbuff.com/players/HoppCX-1509",
+  marvel:   "https://tracker.gg/marvel-rivals/profile/ign/HoppCX/",
+  youtube:  "https://www.youtube.com/@HoppCX"
 };
 
 // Apply links
