@@ -305,3 +305,50 @@ canvas {
         animation: none;
     }
 }
+/* ===== Center + Fill overrides (2025-09-01) ===== */
+
+/* Center icon + text for horizontal links */
+.link {
+  display: grid;
+  grid-auto-flow: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+}
+
+/* Larger icons next to text */
+.link .icon {
+  width: 32px;
+  height: 32px;
+}
+
+/* 2x2 grid layout between Leetify and YouTube */
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* Square tiles, contents truly centered */
+.game-grid .link {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(6px, 6%, 16px);
+}
+
+/* Icons fill most of the tile without distortion */
+.game-grid .icon {
+  width: 84%;
+  height: 84%;
+  max-width: none;
+  max-height: none;
+  object-fit: contain;
+  display: block;
+  margin: 0;
+}
+
+/* Hide any stray text in game tiles just in case */
+.game-grid .link span { display: none !important; }
