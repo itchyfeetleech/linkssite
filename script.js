@@ -25,7 +25,12 @@ window.addEventListener("DOMContentLoaded", () => {
   const BASE = { w: 1920, h: 1080 };
   function updateScale(){
     const s = Math.min(window.innerWidth/BASE.w, window.innerHeight/BASE.h);
-    document.documentElement.style.setProperty('--site-scale', String(s));
+    const w = BASE.w * s;
+    const h = BASE.h * s;
+    const root = document.documentElement.style;
+    root.setProperty('--site-scale', String(s));
+    root.setProperty('--site-width', `${w}px`);
+    root.setProperty('--site-height', `${h}px`);
   }
   window.addEventListener('resize', updateScale);
   updateScale();
