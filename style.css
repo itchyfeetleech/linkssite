@@ -49,39 +49,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Animated ambient background */
+/* WebGL background canvas */
 .bg {
   position: fixed;
-  inset: -40vmax;
+  inset: 0;
   z-index: -1;
   filter: blur(40px) saturate(130%);
-  background:
-    radial-gradient(40vmax 30vmax at 10% -10%, rgba(96,165,250,0.18), transparent 60%),
-    radial-gradient(40vmax 30vmax at 110% 0%, rgba(167,139,250,0.16), transparent 60%),
-    conic-gradient(from var(--angle, 0deg) at 50% 50%,
-      rgba(255,255,255,0.0), rgba(96,165,250,0.10), rgba(167,139,250,0.10), rgba(255,255,255,0.0) 75%);
-  animation: spin 32s linear infinite;
-}
-.bg::before,
-.bg::after {
-  content: "";
-  position: absolute;
-  width: 60vmin; height: 60vmin;
-  background: radial-gradient(closest-side, rgba(167,139,250,.22), transparent);
-  border-radius: 50%;
-  filter: blur(12px);
-  animation: drift 18s ease-in-out infinite alternate;
-}
-.bg::after {
-  width: 40vmin; height: 40vmin;
-  background: radial-gradient(closest-side, rgba(96,165,250,.22), transparent);
-  animation-duration: 22s;
-  animation-delay: -6s;
-}
-@keyframes spin { to { --angle: 360deg; } }
-@keyframes drift {
-  0%   { transform: translate(-10%, -8%) scale(1);   }
-  100% { transform: translate(12%, 10%)  scale(1.08); }
 }
 
 .shell {
@@ -232,8 +205,6 @@ body {
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .bg { animation: none; }
-  .bg::before, .bg::after { animation: none; }
   .brand { animation: none; }
   .brand::after { animation: none; }
   .link { animation: none; }
