@@ -1,10 +1,4 @@
-// 1) Edit your links here. Placeholders keep the buttons visible.
-// Examples:
-// FaceIT:  https://www.faceit.com/en/players/YourName
-// Leetify: https://leetify.com/app/profile/public/steam/STEAMID64
-// Valorant: https://tracker.gg/valorant/profile/riot/NAME%23TAG/overview
-// Overwatch: https://tracker.gg/overwatch-2/profile/battlenet/NAME-1234/overview
-
+// User links. Replace the '#' with your URLs.
 window.LINKS = {
   faceit:   "#",
   leetify:  "#",
@@ -15,7 +9,7 @@ window.LINKS = {
   youtube:  "#"
 };
 
-// 2) Populate <a> hrefs
+// Apply links
 (function applyLinks(){
   const ids = ["faceit","leetify","deadlock","valorant","overwatch","marvel","youtube"];
   ids.forEach((id) => {
@@ -25,14 +19,7 @@ window.LINKS = {
   });
 })();
 
-// 3) Staggered reveal
-(function stagger(){
-  document.querySelectorAll('.link-row').forEach((row, i) => {
-    row.style.setProperty('--i', i + 1);
-  });
-})();
-
-// 4) Theme toggle with persistence
+// Theme toggle with persistence
 (function themeToggle(){
   const root = document.documentElement;
   const btn = document.getElementById('themeToggle');
@@ -42,53 +29,48 @@ window.LINKS = {
     const isLight = mode === 'light';
     root.setAttribute('data-theme', isLight ? 'light' : 'dark');
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    // Match the header bg color for better mobile address bar contrast
     if (metaTheme) metaTheme.content = isLight ? '#f6f7fb' : '#0b0f1a';
   };
 
-  // initial
   const saved = localStorage.getItem('theme');
   if (saved === 'light' || saved === 'dark') setTheme(saved);
-  // else leave as default in HTML
 
-  // click
   btn?.addEventListener('click', () => {
-    const next = (document.documentElement.getAttribute('data-theme') === 'light') ? 'dark' : 'light';
+    const next = (root.getAttribute('data-theme') === 'light') ? 'dark' : 'light';
     setTheme(next);
   });
 })();
 
-// 5) Copy-to-clipboard buttons
-(function copyButtons(){
-  const toast = document.getElementById('toast');
+// Subtle 3D tilt on hover
+(function tilt(){
+  const links = document.querySelectorAll('.link');
+  const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
-  const showToast = (msg) => {
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.hidden = false;
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(() => { toast.hidden = true; }, 1200);
-  };
+  links.forEach((el) => {
+    let raf = null;
 
-  document.querySelectorAll('button.copy').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const key = btn.getAttribute('data-key');
-      const url = window.LINKS?.[key];
-      if (!url || typeof url !== 'string' || url === '#') {
-        showToast('No link set');
-        return;
-      }
-      try {
-        await navigator.clipboard.writeText(url);
-        showToast('Copied');
-      } catch (err) {
-        // Fallback if clipboard API is unavailable
-        const ta = document.createElement('textarea');
-        ta.value = url; document.body.appendChild(ta); ta.select();
-        try { document.execCommand('copy'); showToast('Copied'); }
-        catch { showToast('Copy failed'); }
-        finally { document.body.removeChild(ta); }
-      }
-    });
+    const onMove = (e) => {
+      const r = el.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      const rotY = clamp((px - 0.5) * 8, -8, 8);  // rotateY around vertical axis
+      const rotX = clamp((0.5 - py) * 6, -6, 6);  // rotateX around horizontal axis
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        el.style.setProperty('--tiltX', rotX.toFixed(2) + 'deg');
+        el.style.setProperty('--tiltY', rotY.toFixed(2) + 'deg');
+      });
+    };
+
+    const reset = () => {
+      if (raf) cancelAnimationFrame(raf);
+      el.style.setProperty('--tiltX', '0deg');
+      el.style.setProperty('--tiltY', '0deg');
+    };
+
+    el.addEventListener('mousemove', onMove);
+    el.addEventListener('mouseleave', reset);
+    el.addEventListener('touchstart', reset, {passive:true});
+    el.addEventListener('touchend', reset, {passive:true});
   });
 })();
