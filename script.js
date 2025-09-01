@@ -126,24 +126,29 @@ function initSmoke(){
   const gl = canvas?.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: false });
   if (!canvas || !gl) return;
 
-  // Resize
-  let dpr = Math.max(1, window.devicePixelRatio || 1);
-  function resize(){
-    const w = window.innerWidth|0, h = window.innerHeight|0;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    canvas.style.width = w + 'px';
-    canvas.style.height = h + 'px';
-    sim.resize();
-  }
-  window.addEventListener('resize', ()=>{ dpr = Math.max(1, window.devicePixelRatio||1); resize(); });
-  // Obstacles may move due to hover tilt. Sample frequently.
-  setInterval(()=>sim.measureObstacles(), 60);
-
   // GL helpers
   gl.getExtension('EXT_color_buffer_float');
   gl.getExtension('OES_texture_float_linear');
   const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+  // Resize with DPR cap and maxTex safeguard
+  const MAX_DPR = 2;
+  const getDpr = () => Math.min(MAX_DPR, Math.max(1, window.devicePixelRatio || 1));
+  let dpr = getDpr();
+  function resize(){
+    const w = window.innerWidth|0, h = window.innerHeight|0;
+    const ratio = Math.min(1, maxTex / (w * dpr), maxTex / (h * dpr));
+    const effDpr = dpr * ratio;
+    canvas.width = Math.floor(w * effDpr);
+    canvas.height = Math.floor(h * effDpr);
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    sim.resize();
+  }
+  window.addEventListener('resize', ()=>{ dpr = getDpr(); resize(); });
+  // Obstacles may move due to hover tilt. Sample frequently.
+  setInterval(()=>sim.measureObstacles(), 60);
 
   // Formats
   const HALF = gl.HALF_FLOAT;
@@ -399,8 +404,8 @@ function initSmoke(){
 
   // Simulation parameters
   const params = {
-    SIM_OVERSAMPLE: 2.0,   // >1.0 increases internal resolution for finer eddies
-    DYE_OVERSAMPLE: 2.0,
+    SIM_OVERSAMPLE: isMobile ? 1.0 : 2.0,   // >1.0 increases internal resolution for finer eddies
+    DYE_OVERSAMPLE: isMobile ? 1.0 : 2.0,
     dtClamp: 1/60,
     dissipationVel: 0.000,
     dissipationDye: 0.006,
@@ -418,10 +423,12 @@ function initSmoke(){
     resize(){
       const W = (canvas.width)|0, H = (canvas.height)|0;
 
-      const sw = clamp(Math.floor(W * params.SIM_OVERSAMPLE), 16, maxTex);
-      const sh = clamp(Math.floor(H * params.SIM_OVERSAMPLE), 16, maxTex);
-      const dw = clamp(Math.floor(W * params.DYE_OVERSAMPLE), 16, maxTex);
-      const dh = clamp(Math.floor(H * params.DYE_OVERSAMPLE), 16, maxTex);
+      const simScale = Math.min(params.SIM_OVERSAMPLE, maxTex / W, maxTex / H);
+      const dyeScale = Math.min(params.DYE_OVERSAMPLE, maxTex / W, maxTex / H);
+      const sw = clamp(Math.floor(W * simScale), 16, maxTex);
+      const sh = clamp(Math.floor(H * simScale), 16, maxTex);
+      const dw = clamp(Math.floor(W * dyeScale), 16, maxTex);
+      const dh = clamp(Math.floor(H * dyeScale), 16, maxTex);
 
       // Create or recreate targets
       this.vel  = makePingPong(sw, sh, fmt.vel);
@@ -597,7 +604,7 @@ function initSmoke(){
   }
   function kick(){ resize(); requestAnimationFrame(loop); }
   // initial resize
-  dpr = Math.max(1, window.devicePixelRatio||1);
+  dpr = getDpr();
   kick();
 }
 
