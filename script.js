@@ -74,3 +74,15 @@ window.LINKS = {
     el.addEventListener('touchend', reset, {passive:true});
   });
 })();
+
+// Ambient breathing of text weight
+(function breathe(){
+  const root = document.documentElement;
+  let t = 0;
+  setInterval(() => {
+    const base = parseFloat(getComputedStyle(root).getPropertyValue('--wght-base')) || 600;
+    const weight = base + Math.sin(t) * 50;
+    root.style.setProperty('--wght', weight.toFixed(0));
+    t += 0.04;
+  }, 100);
+})();
