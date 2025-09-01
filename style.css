@@ -18,7 +18,7 @@
     --wdth-base: 100;
     --wght: var(--wght-base);
     --wdth: var(--wdth-base);
-    --font-brand: "Manrope", system-ui, sans-serif;
+    --font-brand: "Nabla", "Manrope", system-ui, sans-serif;
     --font-ui: "Manrope", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial;
 }
 
