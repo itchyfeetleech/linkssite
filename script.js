@@ -94,7 +94,7 @@ window.LINKS = {
   window.addEventListener('resize', resize);
   resize();
 
-  const palette = [[96/255,165/255,250/255],[167/255,139/255,250/255]];
+  const palette = [[15/255,23/255,42/255],[46/255,16/255,101/255]];
   gl.uniform3fv(color1Loc, palette[0]);
   gl.uniform3fv(color2Loc, palette[1]);
 
