@@ -16,7 +16,9 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-      <canvas id="bgCanvas" class="bg"></canvas>
+      <!-- smoke particle canvas (above the WebGL noise layer) -->
+      <canvas id="smokeCanvas" class="bg smoke"></canvas>
+      <canvas id="bgCanvas" class="bg webgl"></canvas>
 
     <main class="shell">
       <section class="hero">
