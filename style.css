@@ -12,7 +12,6 @@
     --deadlock: #60a5fa;
     --valorant: #ff4655;
     --overwatch: #f8b700;
-    --marvel: #a78bfa;
     --youtube: #ff0033;
     --wght-base: 600;
     --wdth-base: 100;
@@ -113,7 +112,7 @@ canvas {
     grid-auto-flow: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
     text-decoration: none;
     color: var(--text);
     padding: 14px 20px;
@@ -147,31 +146,31 @@ canvas {
         --wdth: calc(var(--wdth-base) + 10);
     }
 
-    .link:nth-child(1) {
+    .link-grid > .link:nth-child(1) {
         animation-delay: .05s;
     }
 
-    .link:nth-child(2) {
+    .link-grid > .link:nth-child(2) {
         animation-delay: .10s;
     }
 
-    .link:nth-child(3) {
+    .game-grid .link:nth-child(1) {
         animation-delay: .15s;
     }
 
-    .link:nth-child(4) {
+    .game-grid .link:nth-child(2) {
         animation-delay: .20s;
     }
 
-    .link:nth-child(5) {
+    .game-grid .link:nth-child(3) {
         animation-delay: .25s;
     }
 
-    .link:nth-child(6) {
+    .game-grid .link:nth-child(4) {
         animation-delay: .30s;
     }
 
-    .link:nth-child(7) {
+    .link-grid > .link:nth-child(4) {
         animation-delay: .35s;
     }
 
@@ -203,10 +202,28 @@ canvas {
 }
 
 .icon {
-    width: 18px;
-    height: 18px;
+    width: 24px;
+    height: 24px;
     display: block;
     filter: drop-shadow(0 1px 0 rgba(255,255,255,.6));
+}
+
+.game-grid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+
+.game-grid .link {
+    aspect-ratio: 1;
+    padding: 20px;
+    gap: 0;
+}
+
+.game-grid .icon {
+    width: 56px;
+    height: 56px;
 }
 
 /* layered glass and sweeping sheen */
@@ -264,10 +281,6 @@ canvas {
 
 .brand-overwatch {
     --accent: var(--overwatch);
-}
-
-.brand-marvel {
-    --accent: var(--marvel);
 }
 
 .brand-youtube {

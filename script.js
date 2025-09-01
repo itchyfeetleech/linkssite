@@ -8,13 +8,13 @@ window.addEventListener("DOMContentLoaded", () => {
         deadlock: "https://tracklock.gg/players/238039633",
         valorant: "https://tracker.gg/valorant/profile/riot/HoppCX%23000/",
         overwatch: "https://www.overbuff.com/players/HoppCX-1509",
-        marvel: "https://tracker.gg/marvel-rivals/profile/ign/HoppCX/",
+        valorant2: "https://tracker.gg/valorant/profile/riot/HoppCX%23000/",
         youtube: "https://www.youtube.com/@HoppCX"
     };
 
     // Apply links
     (function applyLinks() {
-        const ids = ["faceit", "leetify", "deadlock", "valorant", "overwatch", "marvel", "youtube"];
+        const ids = ["faceit", "leetify", "deadlock", "valorant", "overwatch", "valorant2", "youtube"];
         ids.forEach((id) => {
             const a = document.getElementById(id);
             const url = window.LINKS[id];
