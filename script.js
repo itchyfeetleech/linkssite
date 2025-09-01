@@ -136,7 +136,7 @@ function initSmoke(){
   const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
   // Resize with DPR cap and maxTex safeguard
-  const MAX_DPR = 2;
+  const MAX_DPR = isMobile ? 1 : 2;
   const getDpr = () => Math.min(MAX_DPR, Math.max(1, window.devicePixelRatio || 1));
   let dpr = getDpr();
   function resize(){
@@ -150,8 +150,18 @@ function initSmoke(){
     sim.resize();
   }
   window.addEventListener('resize', ()=>{ dpr = getDpr(); resize(); });
-  // Obstacles may move due to hover tilt. Sample frequently.
-  setInterval(()=>sim.measureObstacles(), 60);
+
+  // Event-driven obstacle measurements
+  let measureReq = 0;
+  function requestObstacleMeasure(){
+    if (measureReq) return;
+    measureReq = requestAnimationFrame(() => {
+      measureReq = 0;
+      sim.measureObstacles();
+    });
+  }
+  // expose for external triggers (e.g., tilt)
+  window.requestObstacleMeasure = requestObstacleMeasure;
 
   // Formats
   const HALF = gl.HALF_FLOAT;
@@ -407,14 +417,14 @@ function initSmoke(){
 
   // Simulation parameters
   const params = {
-    SIM_OVERSAMPLE: isMobile ? 1.0 : 2.0,   // >1.0 increases internal resolution for finer eddies
-    DYE_OVERSAMPLE: isMobile ? 1.0 : 2.0,
+    SIM_OVERSAMPLE: isMobile ? 0.5 : 2.0,   // >1.0 increases internal resolution for finer eddies
+    DYE_OVERSAMPLE: isMobile ? 0.5 : 2.0,
     dtClamp: 1/60,
     dissipationVel: 0.000,
     dissipationDye: 0.006,
     gravity: 0.45,         // downward accel
     vorticity: 30.0,
-    pressureIters: 50,
+    pressureIters: isMobile ? 20 : 50,
     obstacleInflate: 6     // px
   };
 
@@ -627,12 +637,14 @@ function initSmoke(){
       raf = requestAnimationFrame(() => {
         el.style.setProperty('--tiltX', rotX.toFixed(2) + 'deg');
         el.style.setProperty('--tiltY', rotY.toFixed(2) + 'deg');
+        window.requestObstacleMeasure?.();
       });
     };
     const reset = () => {
       if (raf) cancelAnimationFrame(raf);
       el.style.setProperty('--tiltX', '0deg');
       el.style.setProperty('--tiltY', '0deg');
+      window.requestObstacleMeasure?.();
     };
     el.addEventListener('mousemove', onMove);
     el.addEventListener('mouseleave', reset);
