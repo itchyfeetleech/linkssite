@@ -1,88 +1,100 @@
 <!doctype html>
-<nav class="stack" aria-label="Profile Links">
-<!-- Row: Faceit -->
-<div class="link-row">
-<a id="faceit" class="link brand-faceit" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/faceit.svg" alt="FaceIT" />
-<span>FaceIT</span>
-</a>
-<button class="copy" data-key="faceit" aria-label="Copy FaceIT link">Copy</button>
-</div>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HoppCX</title>
+    <meta name="theme-color" content="#0b0f1a" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="preload" href="assets/icons/faceit.svg" as="image" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg" aria-hidden="true"></div>
 
+    <header class="site-header">
+      <h1 class="brand">HoppCX</h1>
+      <button id="themeToggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
+        <span class="icon" aria-hidden="true">◎</span>
+      </button>
+    </header>
 
-<!-- Row: Leetify -->
-<div class="link-row">
-<a id="leetify" class="link brand-leetify" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/leetify.svg" alt="Leetify" />
-<span>Leetify</span>
-</a>
-<button class="copy" data-key="leetify" aria-label="Copy Leetify link">Copy</button>
-</div>
+    <main class="center">
+      <nav class="stack" aria-label="Profile Links">
+        <!-- Row: Faceit -->
+        <div class="link-row">
+          <a id="faceit" class="link brand-faceit" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/faceit.svg" alt="FaceIT" />
+            <span>FaceIT</span>
+          </a>
+          <button class="copy" data-key="faceit" aria-label="Copy FaceIT link">Copy</button>
+        </div>
 
+        <!-- Row: Leetify -->
+        <div class="link-row">
+          <a id="leetify" class="link brand-leetify" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/leetify.svg" alt="Leetify" />
+            <span>Leetify</span>
+          </a>
+          <button class="copy" data-key="leetify" aria-label="Copy Leetify link">Copy</button>
+        </div>
 
-<!-- Row: Deadlock -->
-<div class="link-row">
-<a id="deadlock" class="link brand-deadlock" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/deadlock.svg" alt="Deadlock" />
-<span>Deadlock</span>
-</a>
-<button class="copy" data-key="deadlock" aria-label="Copy Deadlock link">Copy</button>
-</div>
+        <!-- Row: Deadlock -->
+        <div class="link-row">
+          <a id="deadlock" class="link brand-deadlock" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/deadlock.svg" alt="Deadlock" />
+            <span>Deadlock</span>
+          </a>
+          <button class="copy" data-key="deadlock" aria-label="Copy Deadlock link">Copy</button>
+        </div>
 
+        <!-- Row: Valorant -->
+        <div class="link-row">
+          <a id="valorant" class="link brand-valorant" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/valorant.svg" alt="Valorant" />
+            <span>Valorant</span>
+          </a>
+          <button class="copy" data-key="valorant" aria-label="Copy Valorant link">Copy</button>
+        </div>
 
-<!-- Row: Valorant -->
-<div class="link-row">
-<a id="valorant" class="link brand-valorant" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/valorant.svg" alt="Valorant" />
-<span>Valorant</span>
-</a>
-<button class="copy" data-key="valorant" aria-label="Copy Valorant link">Copy</button>
-</div>
+        <!-- Row: Overwatch -->
+        <div class="link-row">
+          <a id="overwatch" class="link brand-overwatch" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/overwatch.svg" alt="Overwatch" />
+            <span>Overwatch</span>
+          </a>
+          <button class="copy" data-key="overwatch" aria-label="Copy Overwatch link">Copy</button>
+        </div>
 
+        <!-- Row: Marvel Rivals -->
+        <div class="link-row">
+          <a id="marvel" class="link brand-marvel" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/marvel-rivals.svg" alt="Marvel Rivals" />
+            <span>Marvel Rivals</span>
+          </a>
+          <button class="copy" data-key="marvel" aria-label="Copy Marvel Rivals link">Copy</button>
+        </div>
 
-<!-- Row: Overwatch -->
-<div class="link-row">
-<a id="overwatch" class="link brand-overwatch" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/overwatch.svg" alt="Overwatch" />
-<span>Overwatch</span>
-</a>
-<button class="copy" data-key="overwatch" aria-label="Copy Overwatch link">Copy</button>
-</div>
+        <!-- Row: YouTube -->
+        <div class="link-row">
+          <a id="youtube" class="link brand-youtube" href="#" target="_blank" rel="noopener noreferrer">
+            <img class="icon" src="assets/icons/youtube.svg" alt="YouTube" />
+            <span>YouTube</span>
+          </a>
+          <button class="copy" data-key="youtube" aria-label="Copy YouTube link">Copy</button>
+        </div>
+      </nav>
 
+      <p class="hint">
+        Edit your links in <code>script.js</code>. Icons go in <code>assets/icons/</code>.
+      </p>
+    </main>
 
-<!-- Row: Marvel Rivals -->
-<div class="link-row">
-<a id="marvel" class="link brand-marvel" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/marvel-rivals.svg" alt="Marvel Rivals" />
-<span>Marvel Rivals</span>
-</a>
-<button class="copy" data-key="marvel" aria-label="Copy Marvel Rivals link">Copy</button>
-</div>
+    <footer class="site-footer" aria-live="polite">
+      <span id="toast" class="toast" hidden>Copied</span>
+    </footer>
 
-
-<!-- Row: YouTube -->
-<div class="link-row">
-<a id="youtube" class="link brand-youtube" href="#" target="_blank" rel="noopener noreferrer">
-<img class="icon" src="assets/icons/youtube.svg" alt="YouTube" />
-<span>YouTube</span>
-</a>
-<button class="copy" data-key="youtube" aria-label="Copy YouTube link">Copy</button>
-</div>
-</nav>
-
-
-<p class="hint">
-Edit your links in <code>script.js</code>. Icons go in <code>assets/icons/</code>.
-</p>
-</main>
-
-
-<footer class="site-footer" aria-live="polite">
-<span id="toast" class="toast" hidden>Copied</span>
-</footer>
-
-
-<script src="script.js" defer></script>
-<noscript>Enable JavaScript to use theme toggle and copy buttons.</noscript>
-</body>
+    <script src="script.js" defer></script>
+    <noscript>Enable JavaScript to use theme toggle and copy buttons.</noscript>
+  </body>
 </html>
