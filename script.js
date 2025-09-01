@@ -74,3 +74,20 @@ window.LINKS = {
     el.addEventListener('touchend', reset, {passive:true});
   });
 })();
+
+// Slow drifting highlight
+(function highlightDrift(){
+  const links = document.querySelectorAll('.link');
+  let t = 0;
+
+  function frame(){
+    t += 0.5;
+    links.forEach((el, i) => {
+      const x = ((t + i * 40) % 260) - 130;
+      el.style.setProperty('--shine', x + '%');
+    });
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
+})();

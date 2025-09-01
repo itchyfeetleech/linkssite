@@ -145,14 +145,15 @@ body {
 .link {
   --tiltX: 0deg; --tiltY: 0deg;
   position: relative;
-  display: grid; grid-auto-flow: column; align-items: center; justify-content: center; gap: 8px;
+  display: grid; align-items: center; justify-content: center;
   text-decoration: none;
   color: var(--text);
   padding: 12px 14px;
   border-radius: 14px;
   background: var(--glass);
   border: 1px solid var(--border);
-  backdrop-filter: saturate(160%) blur(10px);
+  backdrop-filter: blur(20px) saturate(180%);
+  overflow: hidden;
   font-weight: 800; letter-spacing: .3px;
   text-transform: none;
   box-shadow: 0 8px 18px var(--shadow);
@@ -178,6 +179,16 @@ body {
 
 .icon { width: 18px; height: 18px; display: block; filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)); }
 
+.card-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-auto-flow: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 /* animated accent ring */
 .link::after {
   content: "";
@@ -187,17 +198,19 @@ body {
   -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   opacity: .6;
+  z-index: 3;
 }
 
-/* subtle moving highlight on hover */
+/* moving highlight */
 .link::before {
   content: "";
   position: absolute; inset: 0; border-radius: inherit;
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.06) 50%, transparent 100%);
-  transform: translateX(-130%);
-  transition: transform .6s ease;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.25) 50%, transparent 100%);
+  mix-blend-mode: screen;
+  transform: translateX(var(--shine, -130%));
+  pointer-events: none;
+  z-index: 2;
 }
-.link:hover::before { transform: translateX(130%); }
 
 /* Brand accents */
 .brand-faceit    { --accent: var(--faceit); }
