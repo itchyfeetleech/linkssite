@@ -21,18 +21,6 @@ window.addEventListener("DOMContentLoaded", () => {
     if (a) a.href = LINKS[id];
   }
 
-  // Site scale for consistent framing when zooming
-  const BASE = { w: 1920, h: 1080 };
-  function updateScale(){
-    const s = Math.min(
-      window.innerWidth / BASE.w,
-      window.innerHeight / BASE.h
-    );
-    document.documentElement.style.setProperty('--site-scale', String(s));
-  }
-  window.addEventListener('resize', updateScale);
-  updateScale();
-
   // WebGL bg
   initBG();
 

@@ -20,9 +20,6 @@
   --wdth: var(--wdth-base);
   --font-brand: "Nabla", "Manrope", system-ui, sans-serif;
   --font-ui: "Manrope", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial;
-  --site-scale: 1;
-  --site-width: 100vw;
-  --site-height: 100dvh;
 }
 
 * { box-sizing: border-box; }
@@ -45,8 +42,8 @@ body {
 .bg.smoke { z-index: 1; pointer-events: none; filter: none; }
 
 .shell {
-  width: var(--site-width);
-  height: var(--site-height);
+  width: 100%;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -56,8 +53,7 @@ body {
   position: relative;
   z-index: 2;
   margin: 0 auto;
-  transform: scale(var(--site-scale));
-  transform-origin: top left;
+  max-width: 1920px;
 }
 
 canvas { display: block; width: 100%; height: 100%; }
