@@ -74,3 +74,65 @@ window.LINKS = {
     el.addEventListener('touchend', reset, {passive:true});
   });
 })();
+
+(function cursorTrail(){
+  const canvas = document.getElementById('cursorTrail');
+  if (!canvas) return;
+
+  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+  if (mq.matches) return;
+
+  const ctx = canvas.getContext('2d');
+  let width, height, dpr;
+
+  const resize = () => {
+    dpr = window.devicePixelRatio || 1;
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  window.addEventListener('resize', resize);
+
+  const particles = [];
+  const spawn = (x, y) => {
+    particles.push({
+      x,
+      y,
+      size: Math.random() * 6 + 4,
+      alpha: 1,
+      decay: 0.02 + Math.random() * 0.02
+    });
+  };
+
+  let last = 0;
+  window.addEventListener('pointermove', (e) => {
+    const now = performance.now();
+    if (now - last < 16) return;
+    last = now;
+    spawn(e.clientX, e.clientY);
+  });
+
+  const draw = () => {
+    ctx.clearRect(0, 0, width, height);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.alpha -= p.decay;
+      if (p.alpha <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+      g.addColorStop(0, `rgba(255,255,255,${p.alpha})`);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  };
+  requestAnimationFrame(draw);
+})();

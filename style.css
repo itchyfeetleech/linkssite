@@ -39,8 +39,19 @@ body {
   color: var(--text);
   font-family: var(--font-ui);
   background: var(--bg);
+  cursor: none;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+#cursorTrail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 100;
 }
 
 /* Animated ambient background */
