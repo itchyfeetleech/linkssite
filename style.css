@@ -22,7 +22,7 @@
   --font-ui: "Manrope", ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial;
 }
 
-* { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: border-box; }
 html, body { height: 100%; }
 body {
   margin: 0;
@@ -107,7 +107,8 @@ canvas { display: block; width: 100%; height: 100%; }
   grid-auto-flow: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
+  text-align: center;
   text-decoration: none;
   color: var(--text);
   padding: 14px 20px;
@@ -132,6 +133,7 @@ canvas { display: block; width: 100%; height: 100%; }
 .link:focus-visible { outline: 2px solid var(--outline); outline-offset: 3px; }
 
 .icon { width: 24px; height: 24px; display: block; }
+.link .icon { width: 32px; height: 32px; }
 
 .game-grid {
   display: grid;
@@ -156,8 +158,6 @@ canvas { display: block; width: 100%; height: 100%; }
 .brand-youtube { --accent: var(--youtube); }
 
 /* Center + fill for grid icons */
-.link { gap: 16px; text-align: center; }
-.link .icon { width: 32px; height: 32px; }
 .game-grid .link { display: flex; align-items: center; justify-content: center; padding: clamp(6px, 6%, 16px); }
 .game-grid .icon { width: 84%; height: 84%; object-fit: contain; }
 .game-grid .link span { display: none !important; }
