@@ -2,7 +2,6 @@
 
 // ========================= UTILS =========================
 function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-function isDef(v){ return v !== undefined && v !== null; }
 
 // ========================= MAIN =========================
 window.addEventListener("DOMContentLoaded", () => {
@@ -111,15 +110,14 @@ function initBG(){
 // ========================= Tilt =========================
 (function tilt(){
   const links = document.querySelectorAll('.link');
-  const clampv = (n, a, b)=>Math.max(a, Math.min(b, n));
   links.forEach((el)=>{
     let raf = null;
     const onMove = (e) => {
       const r = el.getBoundingClientRect();
       const px = (e.clientX - r.left) / r.width;
       const py = (e.clientY - r.top) / r.height;
-      const rotY = clampv((px - 0.5) * 8, -8, 8);
-      const rotX = clampv((0.5 - py) * 6, -6, 6);
+      const rotY = clamp((px - 0.5) * 8, -8, 8);
+      const rotX = clamp((0.5 - py) * 6, -6, 6);
       if (raf) cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         el.style.setProperty('--tiltX', rotX.toFixed(2) + 'deg');
