@@ -255,8 +255,8 @@ pre.nfo {
 }
 
 /* Optional SVG warp filter hookup (if supported) */
-@supports (filter: url(#crt-barrel)) {
-  .terminal { filter: url(#crt-barrel) url(#crt-split) contrast(1.03) saturate(1.1); }
+@supports (filter: url(#crt-all)) {
+  .terminal { filter: url(#crt-all) contrast(1.03) saturate(1.1); }
 }
 
 /* High-DPI adjustments to reduce moiré */
