@@ -51,6 +51,9 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       uniform vec2 u_center;
       uniform float u_k1;
       uniform float u_k2;
+      uniform float u_time;  // seconds
+      uniform float u_motion; // 0 = reduced, 1 = animate
+      uniform float u_intensity; // global strength
       // Distort coordinates using Brown-Conrady barrel model
       vec2 barrel(vec2 uv, float k1, float k2){
         vec2 p = (uv - u_center) * 2.0; // roughly [-1,1]
@@ -65,7 +68,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       }
       void main(){
         // Slight chromatic aberration: offset R/B samples inwards/outwards
-        float dr = 0.0002; // very subtle for readability
+        float dr = 0.0002 * u_intensity; // very subtle for readability
         vec2 baseUv = vUv; // texture already flipped via UNPACK_FLIP_Y_WEBGL
         vec2 uvR = barrel(baseUv + vec2( dr, 0.0), u_k1, u_k2);
         vec2 uvG = barrel(baseUv,                  u_k1, u_k2);
@@ -78,6 +81,39 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         col.r = texture2D(u_tex, uvR).r;
         col.g = texture2D(u_tex, uvG).g;
         col.b = texture2D(u_tex, uvB).b;
+
+        // CRT effects in shader (subtle by default)
+        float I = u_intensity; // shorthand
+
+        // Scanlines (horizontal darkening)
+        float pxY = uvG.y * u_res.y;
+        float scan = 0.5 + 0.5 * cos(6.28318 * (pxY / 3.0)); // 3px period
+        float scanAmp = 0.18 * I;
+        col *= mix(1.0 - scanAmp, 1.0, scan);
+
+        // Aperture grille (vertical faint dark stripes)
+        float pxX = uvG.x * u_res.x;
+        float grille = 0.5 + 0.5 * cos(6.28318 * (pxX / 3.0));
+        float grilleAmp = 0.12 * I;
+        col *= mix(1.0 - grilleAmp, 1.0, grille);
+
+        // Rolling band (very subtle, moves only if motion enabled)
+        float bandAmp = 0.08 * I;
+        float pos = fract(uvG.y + (u_motion * u_time * 0.03));
+        float band = smoothstep(0.45, 0.5, pos) * smoothstep(0.55, 0.5, pos);
+        col *= 1.0 + bandAmp * band;
+
+        // Vignette / edge falloff
+        vec2 c = (uvG - u_center) * vec2(u_res.x / u_res.y, 1.0);
+        float r = length(c);
+        float vig = smoothstep(0.9, 0.2, r); // 1 center -> 0 edges
+        float vigAmp = 0.10 * I;
+        col *= mix(1.0 - vigAmp, 1.0, vig);
+
+        // Refresh flicker (tiny amplitude)
+        float flick = 1.0 + (0.04 * I) * (u_motion * (sin(u_time*8.0) * 0.5));
+        col *= flick;
+
         gl_FragColor = vec4(col, 1.0);
       }
     `;
@@ -122,10 +158,16 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const k1Loc = gl.getUniformLocation(prog, "u_k1");
     const k2Loc = gl.getUniformLocation(prog, "u_k2");
     const ctrLoc = gl.getUniformLocation(prog, "u_center");
+    const timeLoc = gl.getUniformLocation(prog, "u_time");
+    const motionLoc = gl.getUniformLocation(prog, "u_motion");
+    const intensityLoc = gl.getUniformLocation(prog, "u_intensity");
     if (texLoc) gl.uniform1i(texLoc, 0);
     if (k1Loc) gl.uniform1f(k1Loc, k1);
     if (k2Loc) gl.uniform1f(k2Loc, k2);
     if (ctrLoc) gl.uniform2f(ctrLoc, center.x, center.y);
+    if (motionLoc) gl.uniform1f(motionLoc, reduceRef.current ? 0.0 : 1.0);
+    const cssIntensity = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--crt-intensity")) || 0.1;
+    if (intensityLoc) gl.uniform1f(intensityLoc, cssIntensity);
 
     // Texture
     const tex = gl.createTexture();
@@ -142,6 +184,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     // Render pass
     const render = () => {
       if (!prog || !gl) return;
+      if (timeLoc) gl.uniform1f(timeLoc, performance.now() * 0.001);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 6);

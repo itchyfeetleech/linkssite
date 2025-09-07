@@ -47,7 +47,8 @@ body {
     repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 3px),
     linear-gradient(0deg, rgba(0,0,0,0.15), transparent 60%);
   mix-blend-mode: overlay;
-  opacity: calc(0.20 * var(--crt-intensity));
+  opacity: 0; /* moved to WebGL */
+  animation: none;
   animation: crtPhase 12s ease-in-out infinite alternate;
   z-index: 1;
 }
@@ -89,8 +90,8 @@ body {
       rgba(0,0,0,0.00) 2px,
       rgba(0,0,0,0.00) 4px);
   mix-blend-mode: overlay;
-  opacity: calc(0.25 * var(--crt-intensity));
-  animation: crtFlicker 9s infinite ease-in-out, scanShift 2400ms linear infinite;
+  opacity: 0; /* moved to WebGL */
+  animation: none;
   z-index: 3;
 }
 
@@ -119,7 +120,7 @@ body {
       rgba(0,0,0,0.00) 1px, rgba(0,0,0,0.00) 3px
     );
   mix-blend-mode: multiply;
-  opacity: calc(0.22 * var(--crt-intensity));
+  opacity: 0; /* moved to WebGL */
   z-index: 1;
 }
 
@@ -131,8 +132,8 @@ body {
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
   filter: blur(6px);
-  animation: roll 14s linear infinite;
-  opacity: calc(0.25 * var(--crt-intensity));
+  animation: none; /* moved to WebGL */
+  opacity: 0;
   z-index: 1;
 }
 
