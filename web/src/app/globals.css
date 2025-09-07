@@ -18,10 +18,10 @@
 
   /* master dial for CRT overlays */
   --crt-intensity: 0.12;
-  /* derived alphas for container glow/fringe */
-  --bloom-core: calc(0.08 * var(--crt-intensity));
-  --bloom-outer: calc(0.04 * var(--crt-intensity));
-  --fringe: calc(0.02 * var(--crt-intensity));
+  /* derived alphas for container glow/fringe (slightly reduced) */
+  --bloom-core: calc(0.05 * var(--crt-intensity));
+  --bloom-outer: calc(0.025 * var(--crt-intensity));
+  --fringe: calc(0.012 * var(--crt-intensity));
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -213,7 +213,7 @@ pre.nfo {
 .muted { color: var(--dim); }
 .divider { color: rgba(255,255,255,0.2); }
 
-.nfo-list { margin: 18px 0 0; padding: 0; list-style: none; }
+.nfo-list { margin: 18px 0 0; padding: 0; list-style: none; font: 16px/1.1 var(--font-pixel); color: var(--fg); }
 .nfo-item {
   display: flex;
   gap: 12px;
@@ -221,21 +221,14 @@ pre.nfo {
   padding: 6px 0;
 }
 .nfo-key {
-  color: var(--accent);
+  color: var(--fg);
   min-width: 120px;
   display: inline-block;
-  text-shadow:
-    0 0 2px rgba(0, 255, 166, 0.22),
-    0 0 6px rgba(0, 255, 166, 0.18),
-    1px 0 rgba(255, 50, 50, 0.06),
-   -1px 0 rgba(50, 140, 255, 0.06);
+  text-shadow: none;
 }
 .nfo-arrow {
-  color: var(--accent-2);
-  text-shadow:
-    0 0 2px rgba(34, 211, 238, 0.45),
-    0 0 8px rgba(34, 211, 238, 0.30);
-  animation: arrowPulse 2.6s ease-in-out infinite;
+  color: var(--fg);
+  text-shadow: none;
 }
 @keyframes arrowPulse {
   0%, 100% { text-shadow: 0 0 2px rgba(34,211,238,0.35), 0 0 6px rgba(34,211,238,0.22); }
@@ -244,16 +237,9 @@ pre.nfo {
 .nfo-item a {
   color: var(--fg);
   text-decoration: none;
-  text-shadow:
-    0 0 1px rgba(209, 247, 214, 0.20),
-    0 0 5px rgba(0, 255, 166, 0.18);
+  text-shadow: none;
 }
-.nfo-item a:hover {
-  color: var(--accent);
-  text-shadow:
-    0 0 2px rgba(0, 255, 166, 0.45),
-    0 0 8px rgba(0, 255, 166, 0.35);
-}
+.nfo-item a:hover { color: var(--fg); text-shadow: none; text-decoration: underline; }
 
 /* Background WebGL canvas remains, retinted via CSS */
 .bg { position: fixed; inset: 0; z-index: 0; }
