@@ -86,7 +86,7 @@ body {
       rgba(0,0,0,0.00) 4px);
   mix-blend-mode: overlay;
   opacity: calc(0.45 * var(--crt-intensity));
-  animation: crtFlicker 6s infinite ease-in-out, scanShift 1800ms linear infinite;
+  animation: crtFlicker 9s infinite ease-in-out, scanShift 2400ms linear infinite;
   z-index: 3;
 }
 
@@ -129,7 +129,7 @@ body {
   pointer-events: none;
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
   filter: blur(6px);
-  animation: roll 9s linear infinite;
+  animation: roll 14s linear infinite;
   opacity: calc(0.25 * var(--crt-intensity));
   z-index: 1;
 }
@@ -140,11 +140,12 @@ body {
 }
 
 @keyframes crtFlicker {
-  0%, 100% { opacity: .45; }
-  43% { opacity: .50; }
-  44% { opacity: .40; }
-  45% { opacity: .48; }
-  70% { opacity: .42; }
+  /* Soften amplitude to reduce flashing */
+  0%, 100% { opacity: .44; }
+  43% { opacity: .46; }
+  44% { opacity: .43; }
+  45% { opacity: .45; }
+  70% { opacity: .44; }
 }
 
 @keyframes scanShift {
@@ -153,8 +154,8 @@ body {
 }
 
 @keyframes crtPhase {
-  0% { opacity: calc(0.30 * var(--crt-intensity)); }
-  100% { opacity: calc(0.40 * var(--crt-intensity)); }
+  0% { opacity: calc(0.33 * var(--crt-intensity)); }
+  100% { opacity: calc(0.37 * var(--crt-intensity)); }
 }
 .titlebar {
   display: flex;

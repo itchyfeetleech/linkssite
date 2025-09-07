@@ -19,6 +19,7 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
   const dprRef = useRef<number>(1);
   const rafRef = useRef<number | null>(null);
   const pendingRef = useRef<number | null>(null);
+  const lastCaptureAtRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -151,8 +152,7 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
     const capture = async () => {
       if (capturing) return;
       capturing = true;
-      const wasHidden = canvas.style.visibility === "hidden";
-      canvas.style.visibility = "hidden"; // avoid capturing itself
+      // Do not toggle visibility; we already exclude the warp canvas in html-to-image filter
       try {
         const dataUrl = await htmlToImage.toPng(container, {
           pixelRatio: dprRef.current,
@@ -173,17 +173,20 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
       } catch (e) {
         console.warn("Lens capture failed", e);
       } finally {
-        if (!wasHidden) canvas.style.visibility = "";
+        lastCaptureAtRef.current = performance.now();
         capturing = false;
       }
     };
 
     const scheduleCapture = () => {
       if (pendingRef.current) return;
+      // throttle if we captured very recently
+      const since = performance.now() - lastCaptureAtRef.current;
+      const delay = Math.max(200, 200 - since);
       pendingRef.current = window.setTimeout(() => {
         pendingRef.current = null;
         capture();
-      }, 60);
+      }, delay);
     };
 
     const resize = () => {
@@ -206,8 +209,16 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
     resize();
 
     // Observe DOM changes inside `.screen`
-    const mo = new MutationObserver(() => scheduleCapture());
-    mo.observe(container, { subtree: true, childList: true, characterData: true, attributes: true });
+    const mo = new MutationObserver((list) => {
+      // Ignore mutations originating from the lens canvas
+      for (const m of list) {
+        const t = m.target as Element;
+        if (t && t instanceof Element && t.classList.contains("lens-warp")) continue;
+        scheduleCapture();
+        break;
+      }
+    });
+    mo.observe(container, { subtree: true, childList: true, characterData: true, attributes: false });
     window.addEventListener("resize", scheduleCapture);
 
     // Initial capture & render
