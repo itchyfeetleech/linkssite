@@ -1,24 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import art from "@/public/asciart.nfo?raw";
 
 export default function NfoBanner() {
-  const [text, setText] = useState<string>("");
-
-  useEffect(() => {
-    let active = true;
-    fetch("/asciart.nfo")
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error("not ok"))))
-      .then((t) => {
-        if (active) setText(t);
-      })
-      .catch(() => {
-        if (active) setText("");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const [text] = useState<string>(art);
 
   const info = `\n\n   .nfo viewer re: hoppcx.top\n   ───────────────────────────────────────\n   sys: 9800X3D @ 5.7GHZ\n   aim: op1we + obsidian dots @ 50cm on glass pad\n   keys: Fun60proHE + 240hz\n\n   links:\n`;
 
