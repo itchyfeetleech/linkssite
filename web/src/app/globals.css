@@ -17,7 +17,11 @@
   --font-pixel: var(--font-vt323), var(--font-mono-stack);
 
   /* master dial for CRT overlays */
-  --crt-intensity: 0.25;
+  --crt-intensity: 0.12;
+  /* derived alphas for container glow/fringe */
+  --bloom-core: calc(0.08 * var(--crt-intensity));
+  --bloom-outer: calc(0.04 * var(--crt-intensity));
+  --fringe: calc(0.02 * var(--crt-intensity));
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -102,22 +106,20 @@ body {
   z-index: 2;
 }
 
-/* Aperture grille / shadow mask simulation */
+/* Aperture grille / shadow mask simulation (dark stripes only to preserve color) */
 .screen::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   background-image:
-    radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
     repeating-linear-gradient(
       90deg,
-      rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 1px,
-      rgba(0,255,0,0.05) 1px, rgba(0,255,0,0.05) 2px,
-      rgba(0,0,255,0.05) 2px, rgba(0,0,255,0.05) 3px
+      rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 1px,
+      rgba(0,0,0,0.00) 1px, rgba(0,0,0,0.00) 3px
     );
-  mix-blend-mode: color-dodge;
-  opacity: calc(0.35 * var(--crt-intensity));
+  mix-blend-mode: multiply;
+  opacity: calc(0.22 * var(--crt-intensity));
   z-index: 1;
 }
 
@@ -176,13 +178,10 @@ body {
 /* Aggregate bloom: subtle content bleed */
 .screen {
   filter:
-    /* toned-down phosphor bloom */
-    drop-shadow(0 0 1px rgba(209, 247, 214, 0.14))
-    drop-shadow(0 0 4px rgba(0, 255, 166, 0.08))
-    drop-shadow(0 0 10px rgba(0, 255, 166, 0.05))
-    /* very subtle chromatic fringing */
-    drop-shadow(1px 0 0 rgba(255, 60, 60, 0.03))
-    drop-shadow(-1px 0 0 rgba(60, 140, 255, 0.03));
+    drop-shadow(0 0 1px rgba(209, 247, 214, var(--bloom-core)))
+    drop-shadow(0 0 4px rgba(0, 255, 166, var(--bloom-outer)))
+    drop-shadow(1px 0 0 rgba(255, 60, 60, var(--fringe)))
+    drop-shadow(-1px 0 0 rgba(60, 140, 255, var(--fringe)));
 }
 canvas.scroller-layer {
   position: absolute;
@@ -266,9 +265,9 @@ pre.nfo {
   .nfo-key { min-width: 90px; }
 }
 
-/* Optional SVG warp filter hookup (if supported) */
+/* SVG warp disabled in favor of WebGL lens to avoid double processing */
 @supports (filter: url(#crt-all)) {
-  .terminal { filter: url(#crt-all) contrast(1.03) saturate(1.1); }
+  .terminal { /* no-op: WebGL lens handles curvature */ }
 }
 
 /* High-DPI adjustments to reduce moiré */
@@ -276,19 +275,17 @@ pre.nfo {
   .terminal::before {
     background:
       repeating-linear-gradient(0deg,
-        rgba(255,255,255,0.045) 0px,
-        rgba(255,255,255,0.045) 2px,
+        rgba(255,255,255,0.035) 0px,
+        rgba(255,255,255,0.035) 2px,
         rgba(0,0,0,0.00) 4px,
         rgba(0,0,0,0.00) 8px);
   }
   .screen::before {
     background-image:
-      radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
       repeating-linear-gradient(
         90deg,
-        rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 2px,
-        rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px,
-        rgba(0,0,255,0.05) 4px, rgba(0,0,255,0.05) 6px
+        rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.00) 2px, rgba(0,0,0,0.00) 6px
       );
   }
 }
@@ -297,19 +294,17 @@ pre.nfo {
   .terminal::before {
     background:
       repeating-linear-gradient(0deg,
-        rgba(255,255,255,0.045) 0px,
-        rgba(255,255,255,0.045) 2px,
+        rgba(255,255,255,0.035) 0px,
+        rgba(255,255,255,0.035) 2px,
         rgba(0,0,0,0.00) 6px,
         rgba(0,0,0,0.00) 12px);
   }
   .screen::before {
     background-image:
-      radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
       repeating-linear-gradient(
         90deg,
-        rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 2px,
-        rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px,
-        rgba(0,0,255,0.05) 4px, rgba(0,0,255,0.05) 6px
+        rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.00) 2px, rgba(0,0,0,0.00) 6px
       );
   }
 }
