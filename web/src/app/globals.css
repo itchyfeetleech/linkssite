@@ -98,6 +98,41 @@ body {
   z-index: 2;
 }
 
+/* Aperture grille / shadow mask simulation */
+.screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 1px,
+    rgba(0,255,0,0.05) 1px, rgba(0,255,0,0.05) 2px,
+    rgba(0,0,255,0.05) 2px, rgba(0,0,255,0.05) 3px
+  );
+  mix-blend-mode: color-dodge;
+  opacity: .35;
+  z-index: 1;
+}
+
+/* Subtle rolling brightness band */
+.screen::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; top: -40%; height: 40%;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
+  filter: blur(6px);
+  animation: roll 9s linear infinite;
+  opacity: .25;
+  z-index: 1;
+}
+
+@keyframes roll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(180%); }
+}
+
 @keyframes crtFlicker {
   0%, 100% { opacity: .45; }
   43% { opacity: .50; }
@@ -137,10 +172,13 @@ pre.nfo {
   font: 16px/1.1 var(--font-pixel);
   white-space: pre;
   text-shadow:
-    0 0 2px rgba(0, 255, 166, 0.22),
-    0 0 6px rgba(0, 255, 166, 0.20),
-    1px 0 rgba(255, 50, 50, 0.06),
-   -1px 0 rgba(50, 140, 255, 0.06);
+    /* bloom core */
+    0 0 1px rgba(209, 247, 214, 0.40),
+    0 0 4px rgba(0, 255, 166, 0.25),
+    0 0 10px rgba(0, 255, 166, 0.18),
+    /* chromatic fringing */
+    1px 0 rgba(255, 60, 60, 0.08),
+   -1px 0 rgba(60, 140, 255, 0.08);
 }
 .prompt { color: var(--accent-2); }
 .muted { color: var(--dim); }
@@ -196,4 +234,9 @@ pre.nfo {
 @media (max-width: 640px) {
   pre.nfo { font-size: 14px; }
   .nfo-key { min-width: 90px; }
+}
+
+/* Optional SVG warp filter hookup (if supported) */
+@supports (filter: url(#crt-warp)) {
+  .terminal { filter: url(#crt-warp) contrast(1.03) saturate(1.1); }
 }
