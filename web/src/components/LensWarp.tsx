@@ -88,17 +88,17 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         // Scanlines (horizontal darkening)
         float pxY = uvG.y * u_res.y;
         float scan = 0.5 + 0.5 * cos(6.28318 * (pxY / 3.0)); // 3px period
-        float scanAmp = 0.18 * I;
+        float scanAmp = 0.06 * I;
         col *= mix(1.0 - scanAmp, 1.0, scan);
 
         // Aperture grille (vertical faint dark stripes)
         float pxX = uvG.x * u_res.x;
         float grille = 0.5 + 0.5 * cos(6.28318 * (pxX / 3.0));
-        float grilleAmp = 0.12 * I;
+        float grilleAmp = 0.04 * I;
         col *= mix(1.0 - grilleAmp, 1.0, grille);
 
         // Rolling band (very subtle, moves only if motion enabled)
-        float bandAmp = 0.08 * I;
+        float bandAmp = 0.04 * I;
         float pos = fract(uvG.y + (u_motion * u_time * 0.03));
         float band = smoothstep(0.45, 0.5, pos) * smoothstep(0.55, 0.5, pos);
         col *= 1.0 + bandAmp * band;
@@ -107,12 +107,23 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         vec2 c = (uvG - u_center) * vec2(u_res.x / u_res.y, 1.0);
         float r = length(c);
         float vig = smoothstep(0.9, 0.2, r); // 1 center -> 0 edges
-        float vigAmp = 0.10 * I;
+        float vigAmp = 0.06 * I;
         col *= mix(1.0 - vigAmp, 1.0, vig);
 
         // Refresh flicker (tiny amplitude)
-        float flick = 1.0 + (0.04 * I) * (u_motion * (sin(u_time*8.0) * 0.5));
+        float flick = 1.0 + (0.02 * I) * (u_motion * (sin(u_time*8.0) * 0.5));
         col *= flick;
+
+        // Mild unsharp mask to restore crisp glyph edges
+        vec2 texel = 1.0 / u_res;
+        vec3 c0 = texture2D(u_tex, uvG).rgb;
+        vec3 c1 = texture2D(u_tex, clamp(uvG + vec2(texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+        vec3 c2 = texture2D(u_tex, clamp(uvG + vec2(-texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+        vec3 c3 = texture2D(u_tex, clamp(uvG + vec2(0.0, texel.y), vec2(0.0), vec2(1.0))).rgb;
+        vec3 c4 = texture2D(u_tex, clamp(uvG + vec2(0.0, -texel.y), vec2(0.0), vec2(1.0))).rgb;
+        vec3 blur = (c0 + c1 + c2 + c3 + c4) * 0.2;
+        float sharpen = 0.10; // keep subtle to avoid halos
+        col = clamp(col * (1.0 + sharpen) - blur * sharpen, 0.0, 1.0);
 
         gl_FragColor = vec4(col, 1.0);
       }
@@ -180,6 +191,14 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    // Enable anisotropic filtering if available for better angled sampling
+    const aniso = (gl.getExtension('EXT_texture_filter_anisotropic') ||
+                  gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic') ||
+                  gl.getExtension('MOZ_EXT_texture_filter_anisotropic')) as any;
+    if (aniso) {
+      const maxAniso = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4;
+      gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, maxAniso));
+    }
 
     // Render pass
     const render = () => {
@@ -237,7 +256,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2), 2.5);
       dprRef.current = dpr;
       const w = Math.max(1, Math.floor(rect.width));
       const h = Math.max(1, Math.floor(rect.height));
