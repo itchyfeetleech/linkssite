@@ -1,6 +1,5 @@
 import ClientEffects from "@/components/ClientEffects";
 import NfoBanner from "@/components/NfoBanner";
-import CopperScroller from "@/components/CopperScroller";
 import { profileLinks, gameLinks, otherLinks } from "@/data/links";
 
 export default function Home() {
@@ -14,7 +13,6 @@ export default function Home() {
             <span className="title">HOPPCX.NFO — ansi/2025</span>
           </div>
           <div className="screen">
-            <CopperScroller />
             <NfoBanner />
             <ul className="nfo-list" aria-label="Links">
               {profileLinks.map((l) => (
