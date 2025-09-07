@@ -1,20 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Nabla } from "next/font/google";
+import { JetBrains_Mono, VT323 } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
-const nabla = Nabla({
-  variable: "--font-nabla",
+const vt323 = VT323({
+  variable: "--font-vt323",
+  weight: "400",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "hoppcx.top",
-  description: "Brief description of hoppcx.top",
+  title: "HoppCX .NFO",
+  description: "Retro ANSI/ASCII terminal profile",
   icons: {
     icon: "/assets/icons/faceit.svg",
   },
@@ -33,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="dark">
       <head />
-      <body className={`${manrope.variable} ${nabla.variable} antialiased`}>
+      <body className={`${jetbrains.variable} ${vt323.variable} antialiased`}>
         {children}
       </body>
     </html>
