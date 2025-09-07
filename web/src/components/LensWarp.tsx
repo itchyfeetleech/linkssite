@@ -66,7 +66,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       void main(){
         // Slight chromatic aberration: offset R/B samples inwards/outwards
         float dr = 0.0002; // very subtle for readability
-        vec2 baseUv = vec2(vUv.x, 1.0 - vUv.y); // flip vertical to match DOM capture
+        vec2 baseUv = vUv; // texture already flipped via UNPACK_FLIP_Y_WEBGL
         vec2 uvR = barrel(baseUv + vec2( dr, 0.0), u_k1, u_k2);
         vec2 uvG = barrel(baseUv,                  u_k1, u_k2);
         vec2 uvB = barrel(baseUv + vec2(-dr, 0.0), u_k1, u_k2);
