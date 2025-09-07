@@ -44,6 +44,7 @@ body {
     linear-gradient(0deg, rgba(0,0,0,0.15), transparent 60%);
   mix-blend-mode: overlay;
   opacity: calc(0.35 * var(--crt-intensity));
+  animation: crtPhase 12s ease-in-out infinite alternate;
   z-index: 1;
 }
 
@@ -85,7 +86,7 @@ body {
       rgba(0,0,0,0.00) 4px);
   mix-blend-mode: overlay;
   opacity: calc(0.45 * var(--crt-intensity));
-  animation: crtFlicker 6s infinite ease-in-out;
+  animation: crtFlicker 6s infinite ease-in-out, scanShift 1800ms linear infinite;
   z-index: 3;
 }
 
@@ -145,6 +146,16 @@ body {
   45% { opacity: .48; }
   70% { opacity: .42; }
 }
+
+@keyframes scanShift {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 1px; }
+}
+
+@keyframes crtPhase {
+  0% { opacity: calc(0.30 * var(--crt-intensity)); }
+  100% { opacity: calc(0.40 * var(--crt-intensity)); }
+}
 .titlebar {
   display: flex;
   align-items: center;
@@ -161,6 +172,8 @@ body {
 .title { color: var(--fg); opacity: .8; }
 
 .screen { padding: 18px 18px 24px; position: relative; overflow: hidden; }
+/* Aggregate bloom: subtle content bleed */
+.screen { filter: drop-shadow(0 0 2px rgba(0,255,166,0.05)) drop-shadow(0 0 6px rgba(0,255,166,0.03)); }
 canvas.scroller-layer {
   position: absolute;
   inset: 0 0 auto 0;
@@ -243,7 +256,7 @@ pre.nfo {
 
 /* Optional SVG warp filter hookup (if supported) */
 @supports (filter: url(#crt-barrel)) {
-  .terminal { filter: url(#crt-barrel) contrast(1.03) saturate(1.1); }
+  .terminal { filter: url(#crt-barrel) url(#crt-split) contrast(1.03) saturate(1.1); }
 }
 
 /* High-DPI adjustments to reduce moiré */
@@ -292,6 +305,7 @@ pre.nfo {
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .terminal::before { animation: none; }
+  .crt::after { animation: none; }
   .screen::after { animation: none; }
   :root { --crt-intensity: 0.6; }
 }

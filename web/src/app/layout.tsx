@@ -61,6 +61,43 @@ export default function RootLayout({
               />
               <feDisplacementMap in="SourceGraphic" in2="rad" scale="7" xChannelSelector="R" yChannelSelector="G"/>
             </filter>
+            <filter id="crt-split" colorInterpolationFilters="sRGB">
+              {/* Edge-strength mask: 0 center -> 1 edges */}
+              <feImage
+                result="edge"
+                href={
+                  "data:image/svg+xml;utf8," +
+                  encodeURIComponent(
+                    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\n` +
+                      `<defs><radialGradient id='g' cx='50%' cy='50%' r='75%'>\n` +
+                        `<stop offset='0%' stop-color='rgb(0,0,0)'/>\n` +
+                        `<stop offset='65%' stop-color='rgb(50,50,50)'/>\n` +
+                        `<stop offset='100%' stop-color='rgb(255,255,255)'/>\n` +
+                      `</radialGradient></defs>\n` +
+                      `<rect width='100' height='100' fill='url(#g)'/>\n` +
+                    `</svg>`
+                  )
+                }
+                preserveAspectRatio="none"
+                x="0" y="0" width="100%" height="100%"
+              />
+              {/* Isolate channels */}
+              <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="R"/>
+              <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="G"/>
+              <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="B"/>
+              {/* Small per-channel offsets */}
+              <feOffset in="R" dx="0.35" dy="0.2" result="Rshift"/>
+              <feOffset in="B" dx="-0.35" dy="-0.2" result="Bshift"/>
+              {/* Mask stronger at edges */}
+              <feComposite in="Rshift" in2="edge" operator="in" result="Redge"/>
+              <feComposite in="Bshift" in2="edge" operator="in" result="Bedge"/>
+              {/* Merge channels */}
+              <feMerge>
+                <feMergeNode in="Redge"/>
+                <feMergeNode in="G"/>
+                <feMergeNode in="Bedge"/>
+              </feMerge>
+            </filter>
           </defs>
         </svg>
       </body>
