@@ -17,7 +17,7 @@
   --font-pixel: var(--font-vt323), var(--font-mono-stack);
 
   /* master dial for CRT overlays */
-  --crt-intensity: 1;
+  --crt-intensity: 0.25;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -176,13 +176,13 @@ body {
 /* Aggregate bloom: subtle content bleed */
 .screen {
   filter:
-    /* phosphor bloom */
-    drop-shadow(0 0 1px rgba(209, 247, 214, 0.40))
-    drop-shadow(0 0 4px rgba(0, 255, 166, 0.25))
-    drop-shadow(0 0 10px rgba(0, 255, 166, 0.18))
-    /* chromatic fringing */
-    drop-shadow(1px 0 0 rgba(255, 60, 60, 0.08))
-    drop-shadow(-1px 0 0 rgba(60, 140, 255, 0.08));
+    /* toned-down phosphor bloom */
+    drop-shadow(0 0 1px rgba(209, 247, 214, 0.14))
+    drop-shadow(0 0 4px rgba(0, 255, 166, 0.08))
+    drop-shadow(0 0 10px rgba(0, 255, 166, 0.05))
+    /* very subtle chromatic fringing */
+    drop-shadow(1px 0 0 rgba(255, 60, 60, 0.03))
+    drop-shadow(-1px 0 0 rgba(60, 140, 255, 0.03));
 }
 canvas.scroller-layer {
   position: absolute;

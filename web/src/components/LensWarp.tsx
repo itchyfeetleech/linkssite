@@ -10,7 +10,7 @@ type Props = {
   center?: { x: number; y: number }; // normalized center, default 0.5,0.5
 };
 
-export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 0.5 } }: Props) {
+export default function LensWarp({ k1 = 0.02, k2 = 0.004, center = { x: 0.5, y: 0.5 } }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<WebGLTexture | null>(null);
   const progRef = useRef<WebGLProgram | null>(null);
@@ -65,10 +65,11 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
       }
       void main(){
         // Slight chromatic aberration: offset R/B samples inwards/outwards
-        float dr = 0.0009; // tune for subtlety
-        vec2 uvR = barrel(vUv + vec2( dr, 0.0), u_k1, u_k2);
-        vec2 uvG = barrel(vUv,                  u_k1, u_k2);
-        vec2 uvB = barrel(vUv + vec2(-dr, 0.0), u_k1, u_k2);
+        float dr = 0.0003; // reduced for readability
+        vec2 baseUv = vec2(vUv.x, 1.0 - vUv.y); // flip vertical to match DOM capture
+        vec2 uvR = barrel(baseUv + vec2( dr, 0.0), u_k1, u_k2);
+        vec2 uvG = barrel(baseUv,                  u_k1, u_k2);
+        vec2 uvB = barrel(baseUv + vec2(-dr, 0.0), u_k1, u_k2);
         // Clamp to avoid wrapping
         uvR = clamp(uvR, vec2(0.0), vec2(1.0));
         uvG = clamp(uvG, vec2(0.0), vec2(1.0));
@@ -131,6 +132,8 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
     texRef.current = tex;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
+    // Ensure uploaded image matches DOM orientation
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
