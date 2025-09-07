@@ -152,14 +152,41 @@ pre.nfo {
   gap: 12px;
   align-items: center;
   padding: 6px 0;
-  text-shadow:
-    0 0 1px rgba(0, 255, 166, 0.18),
-    0 0 4px rgba(0, 255, 166, 0.16);
 }
-.nfo-item a { color: var(--fg); text-decoration: none; }
-.nfo-item a:hover { color: var(--accent); text-shadow: 0 0 4px rgba(0,255,166,0.3); }
-.nfo-key { color: var(--accent); min-width: 120px; display: inline-block; }
-.nfo-arrow { color: var(--accent-2); }
+.nfo-key {
+  color: var(--accent);
+  min-width: 120px;
+  display: inline-block;
+  text-shadow:
+    0 0 2px rgba(0, 255, 166, 0.22),
+    0 0 6px rgba(0, 255, 166, 0.18),
+    1px 0 rgba(255, 50, 50, 0.06),
+   -1px 0 rgba(50, 140, 255, 0.06);
+}
+.nfo-arrow {
+  color: var(--accent-2);
+  text-shadow:
+    0 0 2px rgba(34, 211, 238, 0.45),
+    0 0 8px rgba(34, 211, 238, 0.30);
+  animation: arrowPulse 2.6s ease-in-out infinite;
+}
+@keyframes arrowPulse {
+  0%, 100% { text-shadow: 0 0 2px rgba(34,211,238,0.35), 0 0 6px rgba(34,211,238,0.22); }
+  50% { text-shadow: 0 0 3px rgba(34,211,238,0.6), 0 0 10px rgba(34,211,238,0.38); }
+}
+.nfo-item a {
+  color: var(--fg);
+  text-decoration: none;
+  text-shadow:
+    0 0 1px rgba(209, 247, 214, 0.20),
+    0 0 5px rgba(0, 255, 166, 0.18);
+}
+.nfo-item a:hover {
+  color: var(--accent);
+  text-shadow:
+    0 0 2px rgba(0, 255, 166, 0.45),
+    0 0 8px rgba(0, 255, 166, 0.35);
+}
 
 /* Background WebGL canvas remains, retinted via CSS */
 .bg { position: fixed; inset: 0; z-index: 0; }
