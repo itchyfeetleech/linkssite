@@ -39,11 +39,27 @@ export default function RootLayout({
         {/* SVG filter defs for CRT warp/vignette */}
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
           <defs>
-            <filter id="crt-warp">
-              <feTurbulence type="fractalNoise" baseFrequency="0.002 0.003" numOctaves="1" seed="2" result="noise"/>
-              <feColorMatrix type="saturate" values="0" in="SourceGraphic" result="gray"/>
-              <feGaussianBlur in="gray" stdDeviation="80" result="blur"/>
-              <feDisplacementMap in="SourceGraphic" in2="blur" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+            <filter id="crt-barrel">
+              {/* Radial displacement map: bright center -> dark edges */}
+              <feImage
+                result="rad"
+                href={
+                  "data:image/svg+xml;utf8," +
+                  encodeURIComponent(
+                    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>\n` +
+                      `<defs><radialGradient id='g' cx='50%' cy='50%' r='80%'>\n` +
+                        `<stop offset='0%' stop-color='rgb(200,200,200)'/>\n` +
+                        `<stop offset='70%' stop-color='rgb(120,120,120)'/>\n` +
+                        `<stop offset='100%' stop-color='rgb(0,0,0)'/>\n` +
+                      `</radialGradient></defs>\n` +
+                      `<rect width='100' height='100' fill='url(#g)'/>\n` +
+                    `</svg>`
+                  )
+                }
+                preserveAspectRatio="none"
+                x="0" y="0" width="100%" height="100%"
+              />
+              <feDisplacementMap in="SourceGraphic" in2="rad" scale="7" xChannelSelector="R" yChannelSelector="G"/>
             </filter>
           </defs>
         </svg>

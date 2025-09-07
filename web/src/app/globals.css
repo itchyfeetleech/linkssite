@@ -15,6 +15,9 @@
   /* fonts from next/font */
   --font-mono-stack: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --font-pixel: var(--font-vt323), var(--font-mono-stack);
+
+  /* master dial for CRT overlays */
+  --crt-intensity: 1;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -40,7 +43,7 @@ body {
     repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 3px),
     linear-gradient(0deg, rgba(0,0,0,0.15), transparent 60%);
   mix-blend-mode: overlay;
-  opacity: 0.35;
+  opacity: calc(0.35 * var(--crt-intensity));
   z-index: 1;
 }
 
@@ -81,7 +84,7 @@ body {
       rgba(0,0,0,0.00) 2px,
       rgba(0,0,0,0.00) 4px);
   mix-blend-mode: overlay;
-  opacity: .45;
+  opacity: calc(0.45 * var(--crt-intensity));
   animation: crtFlicker 6s infinite ease-in-out;
   z-index: 3;
 }
@@ -94,7 +97,7 @@ body {
   background:
     radial-gradient(120% 100% at 50% 10%, rgba(255,255,255,0.05), rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.3) 82%, rgba(0,0,0,0.6) 100%);
   mix-blend-mode: overlay;
-  opacity: .65;
+  opacity: calc(0.65 * var(--crt-intensity));
   z-index: 2;
 }
 
@@ -104,14 +107,16 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: repeating-linear-gradient(
-    90deg,
-    rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 1px,
-    rgba(0,255,0,0.05) 1px, rgba(0,255,0,0.05) 2px,
-    rgba(0,0,255,0.05) 2px, rgba(0,0,255,0.05) 3px
-  );
+  background-image:
+    radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 1px,
+      rgba(0,255,0,0.05) 1px, rgba(0,255,0,0.05) 2px,
+      rgba(0,0,255,0.05) 2px, rgba(0,0,255,0.05) 3px
+    );
   mix-blend-mode: color-dodge;
-  opacity: .35;
+  opacity: calc(0.35 * var(--crt-intensity));
   z-index: 1;
 }
 
@@ -124,7 +129,7 @@ body {
   background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0));
   filter: blur(6px);
   animation: roll 9s linear infinite;
-  opacity: .25;
+  opacity: calc(0.25 * var(--crt-intensity));
   z-index: 1;
 }
 
@@ -237,6 +242,56 @@ pre.nfo {
 }
 
 /* Optional SVG warp filter hookup (if supported) */
-@supports (filter: url(#crt-warp)) {
-  .terminal { filter: url(#crt-warp) contrast(1.03) saturate(1.1); }
+@supports (filter: url(#crt-barrel)) {
+  .terminal { filter: url(#crt-barrel) contrast(1.03) saturate(1.1); }
+}
+
+/* High-DPI adjustments to reduce moiré */
+@media (min-resolution: 1.5dppx) and (max-resolution: 1.99dppx) {
+  .terminal::before {
+    background:
+      repeating-linear-gradient(0deg,
+        rgba(255,255,255,0.045) 0px,
+        rgba(255,255,255,0.045) 2px,
+        rgba(0,0,0,0.00) 4px,
+        rgba(0,0,0,0.00) 8px);
+  }
+  .screen::before {
+    background-image:
+      radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 2px,
+        rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px,
+        rgba(0,0,255,0.05) 4px, rgba(0,0,255,0.05) 6px
+      );
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  .terminal::before {
+    background:
+      repeating-linear-gradient(0deg,
+        rgba(255,255,255,0.045) 0px,
+        rgba(255,255,255,0.045) 2px,
+        rgba(0,0,0,0.00) 6px,
+        rgba(0,0,0,0.00) 12px);
+  }
+  .screen::before {
+    background-image:
+      radial-gradient(120% 85% at 50% 40%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.25) 100%),
+      repeating-linear-gradient(
+        90deg,
+        rgba(255,0,0,0.05) 0px, rgba(255,0,0,0.05) 2px,
+        rgba(0,255,0,0.05) 2px, rgba(0,255,0,0.05) 4px,
+        rgba(0,0,255,0.05) 4px, rgba(0,0,255,0.05) 6px
+      );
+  }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .terminal::before { animation: none; }
+  .screen::after { animation: none; }
+  :root { --crt-intensity: 0.6; }
 }

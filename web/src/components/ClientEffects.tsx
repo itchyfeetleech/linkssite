@@ -10,6 +10,7 @@ export default function ClientEffects() {
     const canvas = canvasRef.current;
     const gl = canvas?.getContext("webgl");
     if (!canvas || !gl) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
     const vertSrc = `
       attribute vec2 position;
@@ -85,9 +86,14 @@ export default function ClientEffects() {
       if (timeLoc) gl.uniform1f(timeLoc, t * 0.001);
       if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
-      rafId = requestAnimationFrame(render);
+      if (!reduce) rafId = requestAnimationFrame(render);
     };
-    rafId = requestAnimationFrame(render);
+    // Draw one frame if reduced motion, else animate
+    if (reduce) {
+      render(performance.now());
+    } else {
+      rafId = requestAnimationFrame(render);
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
