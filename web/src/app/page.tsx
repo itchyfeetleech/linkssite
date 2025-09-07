@@ -1,5 +1,6 @@
 import ClientEffects from "@/components/ClientEffects";
 import NfoBanner from "@/components/NfoBanner";
+import LensWarp from "@/components/LensWarp";
 import { profileLinks, gameLinks, otherLinks } from "@/data/links";
 
 export default function Home() {
@@ -43,6 +44,8 @@ export default function Home() {
                 </li>
               ))}
             </ul>
+            {/* WebGL lens warp overlay (visual only, clicks pass through) */}
+            <LensWarp />
           </div>
         </div>
       </main>
