@@ -10,6 +10,11 @@ type Props = {
   center?: { x: number; y: number }; // normalized center, default 0.5,0.5
 };
 
+type AnisoExt = {
+  TEXTURE_MAX_ANISOTROPY_EXT: number;
+  MAX_TEXTURE_MAX_ANISOTROPY_EXT: number;
+};
+
 export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y: 0.5 } }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<WebGLTexture | null>(null);
@@ -194,7 +199,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     // Enable anisotropic filtering if available for better angled sampling
     const aniso = (gl.getExtension('EXT_texture_filter_anisotropic') ||
                   gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic') ||
-                  gl.getExtension('MOZ_EXT_texture_filter_anisotropic')) as any;
+                  gl.getExtension('MOZ_EXT_texture_filter_anisotropic')) as unknown as AnisoExt | null;
     if (aniso) {
       const maxAniso = gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4;
       gl.texParameterf(gl.TEXTURE_2D, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, maxAniso));
