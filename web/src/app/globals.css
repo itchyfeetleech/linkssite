@@ -173,7 +173,16 @@ body {
 
 .screen { padding: 18px 18px 24px; position: relative; overflow: hidden; }
 /* Aggregate bloom: subtle content bleed */
-.screen { filter: drop-shadow(0 0 2px rgba(0,255,166,0.05)) drop-shadow(0 0 6px rgba(0,255,166,0.03)); }
+.screen {
+  filter:
+    /* phosphor bloom */
+    drop-shadow(0 0 1px rgba(209, 247, 214, 0.40))
+    drop-shadow(0 0 4px rgba(0, 255, 166, 0.25))
+    drop-shadow(0 0 10px rgba(0, 255, 166, 0.18))
+    /* chromatic fringing */
+    drop-shadow(1px 0 0 rgba(255, 60, 60, 0.08))
+    drop-shadow(-1px 0 0 rgba(60, 140, 255, 0.08));
+}
 canvas.scroller-layer {
   position: absolute;
   inset: 0 0 auto 0;
@@ -189,14 +198,6 @@ pre.nfo {
   color: var(--fg);
   font: 16px/1.1 var(--font-pixel);
   white-space: pre;
-  text-shadow:
-    /* bloom core */
-    0 0 1px rgba(209, 247, 214, 0.40),
-    0 0 4px rgba(0, 255, 166, 0.25),
-    0 0 10px rgba(0, 255, 166, 0.18),
-    /* chromatic fringing */
-    1px 0 rgba(255, 60, 60, 0.08),
-   -1px 0 rgba(60, 140, 255, 0.08);
 }
 .prompt { color: var(--accent-2); }
 .muted { color: var(--dim); }
