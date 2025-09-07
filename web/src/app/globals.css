@@ -65,6 +65,7 @@ body {
   overflow: hidden;
   position: relative;
   transform: perspective(1200px) rotateX(0.35deg) rotateY(-0.25deg);
+  isolation: isolate; /* ensure blend overlays interact within terminal */
 }
 
 /* Full CRT overlay (scanlines + vignette + subtle curvature shine) */
@@ -82,6 +83,7 @@ body {
   mix-blend-mode: overlay;
   opacity: .45;
   animation: crtFlicker 6s infinite ease-in-out;
+  z-index: 3;
 }
 
 .terminal::after {
@@ -93,6 +95,7 @@ body {
     radial-gradient(120% 100% at 50% 10%, rgba(255,255,255,0.05), rgba(255,255,255,0.02) 40%, rgba(0,0,0,0.3) 82%, rgba(0,0,0,0.6) 100%);
   mix-blend-mode: overlay;
   opacity: .65;
+  z-index: 2;
 }
 
 @keyframes crtFlicker {
@@ -144,7 +147,15 @@ pre.nfo {
 .divider { color: rgba(255,255,255,0.2); }
 
 .nfo-list { margin: 18px 0 0; padding: 0; list-style: none; }
-.nfo-item { display: flex; gap: 12px; align-items: center; padding: 6px 0; }
+.nfo-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  text-shadow:
+    0 0 1px rgba(0, 255, 166, 0.18),
+    0 0 4px rgba(0, 255, 166, 0.16);
+}
 .nfo-item a { color: var(--fg); text-decoration: none; }
 .nfo-item a:hover { color: var(--accent); text-shadow: 0 0 4px rgba(0,255,166,0.3); }
 .nfo-key { color: var(--accent); min-width: 120px; display: inline-block; }
