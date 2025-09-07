@@ -20,6 +20,10 @@ export default function NfoBanner() {
     };
   }, []);
 
-  return <pre className="nfo">{text}</pre>; 
-}
+  const info = `\n\n   .nfo viewer re: hoppcx.top\n   ───────────────────────────────────────\n   sys: 9800X3D @ 5.7GHZ\n   aim: op1we + obsidian dots @ 50cm on glass pad\n   keys: Fun60proHE + 240hz\n\n   links:\n`;
 
+  const shouldAppendInfo = text && !/\.nfo viewer re:/i.test(text) && !/^\s*links:\s*$/mi.test(text);
+  const output = shouldAppendInfo ? `${text.replace(/\n?$/, "\n")}${info}` : (text || info);
+
+  return <pre className="nfo">{output}</pre>;
+}
