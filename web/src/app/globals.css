@@ -78,7 +78,16 @@ body {
 .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; opacity: .35; }
 .title { color: var(--fg); opacity: .8; }
 
-.screen { padding: 18px 18px 24px; }
+.screen { padding: 18px 18px 24px; position: relative; overflow: hidden; }
+canvas.scroller-layer {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: clamp(180px, 36vh, 320px);
+  width: 100%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: 0.9;
+}
 
 pre.nfo {
   margin: 0 0 18px 0;
