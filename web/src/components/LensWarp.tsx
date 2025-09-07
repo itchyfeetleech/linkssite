@@ -135,24 +135,16 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    const resize = () => {
-      const rect = container.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      dprRef.current = dpr;
-      const w = Math.max(1, Math.floor(rect.width));
-      const h = Math.max(1, Math.floor(rect.height));
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
-      scheduleCapture();
+    // Render pass
+    const render = () => {
+      if (!prog || !gl) return;
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      if (!reduceRef.current) {
+        rafRef.current = requestAnimationFrame(render);
+      }
     };
-
-    const ro = new ResizeObserver(resize);
-    ro.observe(container);
-    resize();
 
     // Snapshot underlying container into texture
     let capturing = false;
@@ -194,20 +186,29 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
       }, 60);
     };
 
+    const resize = () => {
+      const rect = container.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      dprRef.current = dpr;
+      const w = Math.max(1, Math.floor(rect.width));
+      const h = Math.max(1, Math.floor(rect.height));
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
+      scheduleCapture();
+    };
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(container);
+    resize();
+
     // Observe DOM changes inside `.screen`
     const mo = new MutationObserver(() => scheduleCapture());
     mo.observe(container, { subtree: true, childList: true, characterData: true, attributes: true });
     window.addEventListener("resize", scheduleCapture);
-
-    const render = () => {
-      if (!prog || !gl) return;
-      gl.clearColor(0, 0, 0, 0);
-      gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.drawArrays(gl.TRIANGLES, 0, 6);
-      if (!reduceRef.current) {
-        rafRef.current = requestAnimationFrame(render);
-      }
-    };
 
     // Initial capture & render
     capture();
@@ -224,4 +225,3 @@ export default function LensWarp({ k1 = 0.06, k2 = 0.015, center = { x: 0.5, y: 
 
   return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot />;
 }
-
