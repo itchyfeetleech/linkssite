@@ -34,6 +34,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync ASCII art into public
+        run: |
+          if [ -f ../asciart.nfo ]; then cp ../asciart.nfo ./public/asciart.nfo; fi
+
       - name: Build (Next.js export)
         run: npm run build
 
@@ -57,4 +61,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
