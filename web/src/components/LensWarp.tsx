@@ -74,6 +74,24 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const container = canvas.parentElement as HTMLElement | null;
     if (!container) return;
 
+    // Mode override via query or localStorage: crt=HQ|LQ or localStorage['crt-mode']
+    let forceMode: "HQ" | "LQ" | null = null;
+    try {
+      const url = new URL(window.location.href);
+      const p = url.searchParams.get("crt");
+      if (p) {
+        const pm = p.toUpperCase();
+        if (pm === "HQ" || pm === "LQ") forceMode = pm as "HQ" | "LQ";
+      }
+      if (!forceMode) {
+        const s = localStorage.getItem("crt-mode");
+        if (s) {
+          const sm = s.toUpperCase();
+          if (sm === "HQ" || sm === "LQ") forceMode = sm as "HQ" | "LQ";
+        }
+      }
+    } catch {}
+
     // Try HQ (WebGL2) pipeline. If initialized, skip LQ path below.
     const tryInitHQ = () => {
       const gl2 = canvas.getContext("webgl2", { premultipliedAlpha: true }) as WebGL2RenderingContext | null;
@@ -169,7 +187,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { const dataUrl = await htmlToImage.toPng(container, { pixelRatio: dprRef.current, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; } };
       const scheduleCapture = () => { if (pendingRef.current) return; const since = performance.now() - lastCaptureAtRef.current; const delay = Math.max(200, 200 - since); pendingRef.current = window.setTimeout(() => { pendingRef.current=null; capture(); }, delay); };
 
-      const ro = new ResizeObserver(() => { const rect=container.getBoundingClientRect(); const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
+      const ro = new ResizeObserver(() => { const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
       window.addEventListener("resize", scheduleCapture); window.addEventListener("ascii-ready", capture);
 
       // Context loss cleanup
@@ -182,7 +200,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       return true;
     };
 
-    if (tryInitHQ()) {
+    if (forceMode !== "LQ" && tryInitHQ()) {
       return () => { /* HQ path handles its own cleanup */ };
     }
 

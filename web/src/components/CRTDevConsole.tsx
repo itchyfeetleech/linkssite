@@ -36,6 +36,7 @@ type CRTApi = {
   disable: () => CRTState;
   hz: (hz: number) => CRTState;
   phosphor: (opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) => CRTState;
+  mode: (m: 'HQ'|'LQ') => void;
 };
 
 declare global {
@@ -60,6 +61,7 @@ export default function CRTDevConsole() {
           `window.CRT.enable() / window.CRT.disable()\n` +
           `window.CRT.hz(50|60)                   -> set mains Hz\n` +
           `window.CRT.phosphor({ rMs,gMs,bMs,halo }) -> set decay (s) and halo gain\n`
+          + `window.CRT.mode('HQ'|'LQ')           -> force mode and reload\n`
         );
       },
       get(): CRTState {
@@ -79,6 +81,7 @@ export default function CRTDevConsole() {
       disable() { return api.set(0); },
       hz(hz: number) { return api.set(last.alive, hz); },
       phosphor(opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) { setPhosphor(opts); return api.get(); },
+      mode(m: 'HQ'|'LQ') { try { localStorage.setItem('crt-mode', m); } catch {} location.reload(); },
     };
 
     try {
