@@ -290,14 +290,15 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     });
     mo.observe(container, { subtree: true, childList: true, characterData: true, attributes: false });
     window.addEventListener("resize", scheduleCapture);
+    window.addEventListener("ascii-ready", capture);
 
-    // Initial capture & render
-    capture();
+    // Initial capture now triggered via 'ascii-ready' event
 
     return () => {
       ro.disconnect();
       mo.disconnect();
       window.removeEventListener("resize", scheduleCapture);
+      window.removeEventListener("ascii-ready", capture);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (gl && texRef.current) gl.deleteTexture(texRef.current);
       if (gl && progRef.current) gl.deleteProgram(progRef.current);
