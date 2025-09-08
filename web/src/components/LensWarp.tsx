@@ -25,6 +25,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const rafRef = useRef<number | null>(null);
   const pendingRef = useRef<number | null>(null);
   const lastCaptureAtRef = useRef<number>(0);
+  const announcedReadyRef = useRef<boolean>(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -238,6 +239,14 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
           render();
+          // Announce the very first successful WebGL draw so we can reveal the UI
+          if (!announcedReadyRef.current) {
+            announcedReadyRef.current = true;
+            // ensure the draw hit the screen first
+            requestAnimationFrame(() => {
+              window.dispatchEvent(new Event("webgl-ready"));
+            });
+          }
         };
         img.src = dataUrl;
       } catch (e) {
