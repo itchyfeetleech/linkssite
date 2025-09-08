@@ -36,8 +36,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const lastCaptureAtRef = useRef<number>(0);
   const announcedReadyRef = useRef<boolean>(false);
   // Live micro-effects controls
-  const aliveRef = useRef<number>(0); // 0..1; default static
-  const mainsHzRef = useRef<number>(60);
+  const aliveRef = useRef<number>(0.6); // default micro-effects strength
+  const mainsHzRef = useRef<number>(50); // default mains
   // Performance gating
   const gateRef = useRef<boolean>(false);
   const fpsEMARef = useRef<number>(60);
@@ -50,16 +50,6 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const canvas = canvasRef.current;
     if (!canvas) return;
     reduceRef.current = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-
-    // Guess mains Hz by locale/timezone (coarse)
-    try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-      if (/^(Europe|Africa|Australia|Indian|Pacific)/i.test(tz)) {
-        mainsHzRef.current = 50;
-      } else {
-        mainsHzRef.current = 60;
-      }
-    } catch {}
 
     // Listen for external control of alive/mainsHz
     const onAlive = (ev: Event) => {
