@@ -41,8 +41,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const lastCaptureAtRef = useRef<number>(0);
   const announcedReadyRef = useRef<boolean>(false);
   // Live micro-effects controls
-  const aliveRef = useRef<number>(0.6); // default micro-effects strength
-  const mainsHzRef = useRef<number>(50); // default mains
+  const aliveRef = useRef<number>(1.0); // default micro-effects strength
+  const mainsHzRef = useRef<number>(5); // default mains (Hz)
   // Performance gating
   const gateRef = useRef<boolean>(false);
   const fpsEMARef = useRef<number>(60);
@@ -50,12 +50,12 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const belowSinceRef = useRef<number | null>(null);
   const aboveSinceRef = useRef<number | null>(null);
   const lastStateEmitRef = useRef<number>(0);
-  const decayMsRef = useRef<{ r: number; g: number; b: number }>({ r: 0.09, g: 0.11, b: 0.14 });
-  const haloRef = useRef<number>(1.0);
+  const decayMsRef = useRef<{ r: number; g: number; b: number }>({ r: 12.0, g: 14.0, b: 10.0 });
+  const haloRef = useRef<number>(0.6);
   // Beam/scanline controls (HQ only)
   const beamOnRef = useRef<boolean>(true);
-  const beamPxRef = useRef<number>(1.2);
-  const beamModDepthRef = useRef<number>(0.12);
+  const beamPxRef = useRef<number>(6.0);
+  const beamModDepthRef = useRef<number>(1.0);
   const beamInterlaceRef = useRef<boolean>(false);
 
   useEffect(() => {
