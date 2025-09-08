@@ -63,7 +63,7 @@ body {
   z-index: 2;
 }
 
-/* Terminal window */
+/* Terminal window (TERMINAL_WINDOW) */
 .terminal {
   width: min(980px, calc(100% - 16px));
   border: 1px solid rgba(0,255,166,0.25);
@@ -188,7 +188,7 @@ canvas.scroller-layer {
   opacity: 0.9;
 }
 
-/* WebGL lens warp overlay */
+/* WebGL lens warp overlay (LENS_WARP_CANVAS) */
 canvas.lens-warp {
   position: absolute;
   inset: 0;
@@ -236,7 +236,7 @@ pre.nfo {
 }
 .nfo-item a:hover { color: var(--fg); text-shadow: none; text-decoration: underline; }
 
-/* Background WebGL canvas remains, retinted via CSS */
+/* Background WebGL canvas (BACKGROUND_CANVAS) remains, retinted via CSS */
 .bg { position: fixed; inset: 0; z-index: 0; }
 .bg.webgl { filter: hue-rotate(110deg) saturate(150%) brightness(80%) blur(6px); opacity: 0.7; }
 .bg.fog { display: none; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Sections } from "@/lib/sections";
 
 export default function CopperScroller() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -98,5 +99,5 @@ export default function CopperScroller() {
     };
   }, [reduce]);
 
-  return <canvas ref={canvasRef} className="scroller-layer" aria-hidden />;
+  return <canvas ref={canvasRef} className="scroller-layer" aria-hidden data-section={Sections.COPPER_SCROLLER} />;
 }

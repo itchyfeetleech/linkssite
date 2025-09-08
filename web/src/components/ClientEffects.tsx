@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Sections } from "@/lib/sections";
 
 export default function ClientEffects() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -143,8 +144,9 @@ export default function ClientEffects() {
 
   return (
     <>
-      <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" />
-      <div id="fogOverlay" className="bg fog" />
+      {/* BACKGROUND_CANVAS + FOG_OVERLAY */}
+      <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" data-section={Sections.BACKGROUND_CANVAS} />
+      <div id="fogOverlay" className="bg fog" data-section={Sections.FOG_OVERLAY} />
     </>
   );
 }

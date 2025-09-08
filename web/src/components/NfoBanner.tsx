@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { Sections } from "@/lib/sections";
+
 export default function NfoBanner() {
   const [text, setText] = useState<string>("");
 
@@ -23,5 +25,5 @@ export default function NfoBanner() {
   const shouldAppendInfo = text && !/\.nfo viewer re:/i.test(text) && !/^\s*links:\s*$/mi.test(text);
   const output = shouldAppendInfo ? `${text.replace(/\n?$/, "\n")}${info}` : (text || info);
 
-  return <pre className="nfo">{output}</pre>;
+  return <pre className="nfo" data-section={Sections.ASCII_BANNER}>{output}</pre>;
 }

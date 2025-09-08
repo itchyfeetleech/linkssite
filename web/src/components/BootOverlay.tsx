@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Sections } from "@/lib/sections";
 
 export default function BootOverlay() {
   const [hidden, setHidden] = useState(false);
@@ -25,6 +26,7 @@ export default function BootOverlay() {
   return (
     <div
       id="boot-overlay"
+      data-section={Sections.BOOT_OVERLAY}
       aria-hidden="true"
       style={{
         position: "fixed",
@@ -38,4 +40,3 @@ export default function BootOverlay() {
     />
   );
 }
-

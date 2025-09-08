@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Sections } from "@/lib/sections";
 import * as htmlToImage from "html-to-image";
 
 type Props = {
@@ -314,5 +315,5 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     };
   }, [k1, k2, center.x, center.y]);
 
-  return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot />;
+  return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot data-section={Sections.LENS_WARP_CANVAS} />;
 }
