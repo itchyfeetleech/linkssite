@@ -4,6 +4,14 @@ import { useEffect, useRef } from "react";
 import { Sections } from "@/lib/sections";
 import * as htmlToImage from "html-to-image";
 
+// External control: update CRT micro-effects strength and mains Hz
+export function setCRTAlive(alive: number, mainsHz?: number) {
+  const a = Math.max(0, Math.min(1, alive));
+  window.dispatchEvent(
+    new CustomEvent("crt-alive", { detail: { alive: a, mainsHz } })
+  );
+}
+
 type Props = {
   // Optional: tweak curvature
   k1?: number; // primary distortion coefficient
@@ -27,11 +35,42 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const pendingRef = useRef<number | null>(null);
   const lastCaptureAtRef = useRef<number>(0);
   const announcedReadyRef = useRef<boolean>(false);
+  // Live micro-effects controls
+  const aliveRef = useRef<number>(0); // 0..1; default static
+  const mainsHzRef = useRef<number>(60);
+  // Performance gating
+  const gateRef = useRef<boolean>(false);
+  const fpsEMARef = useRef<number>(60);
+  const lastRenderAtRef = useRef<number>(performance.now());
+  const belowSinceRef = useRef<number | null>(null);
+  const aboveSinceRef = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     reduceRef.current = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+
+    // Guess mains Hz by locale/timezone (coarse)
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      if (/^(Europe|Africa|Australia|Indian|Pacific)/i.test(tz)) {
+        mainsHzRef.current = 50;
+      } else {
+        mainsHzRef.current = 60;
+      }
+    } catch {}
+
+    // Listen for external control of alive/mainsHz
+    const onAlive = (ev: Event) => {
+      const e = ev as CustomEvent<{ alive?: number; mainsHz?: number }>;
+      if (typeof e.detail?.alive === "number") {
+        aliveRef.current = Math.max(0, Math.min(1, e.detail.alive));
+      }
+      if (typeof e.detail?.mainsHz === "number") {
+        mainsHzRef.current = e.detail.mainsHz;
+      }
+    };
+    window.addEventListener("crt-alive", onAlive);
 
     // The lens covers the parent `.screen` container
     const container = canvas.parentElement as HTMLElement | null;
@@ -59,8 +98,13 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       uniform float u_k1;
       uniform float u_k2;
       uniform float u_time;  // seconds
+      uniform float u_alive; // 0..1 micro-effects strength
+      uniform float u_mainsHz; // 50 or 60
       uniform float u_motion; // 0 = reduced, 1 = animate
       uniform float u_intensity; // global strength
+      
+      // Small hash for phase noise
+      float hash1(float x){ return fract(sin(x*127.1) * 43758.5453123); }
       // Distort coordinates using Brown-Conrady barrel model
       vec2 barrel(vec2 uv, float k1, float k2){
         vec2 p = (uv - u_center) * 2.0; // roughly [-1,1]
@@ -80,6 +124,19 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         vec2 uvR = barrel(baseUv + vec2( dr, 0.0), u_k1, u_k2);
         vec2 uvG = barrel(baseUv,                  u_k1, u_k2);
         vec2 uvB = barrel(baseUv + vec2(-dr, 0.0), u_k1, u_k2);
+        
+        // Time-based micro-effects (horizontal)
+        float phase = 6.2831853 * u_mainsHz * u_time;
+        float line = gl_FragCoord.y;
+        // Effect 1: mains-rate beam jitter
+        float jitter = (0.25 / u_res.x) * sin(phase + line * 0.015) * u_alive;
+        // Effect 2: scanline phase noise (slow drift + tiny hashed jitter)
+        float drift = sin(phase * 0.07 + line * 0.011) * (0.15 / u_res.x) * u_alive;
+        float t2 = floor(u_time * 2.0);
+        float n = hash1(line + t2 * 31.7);
+        drift += (n - 0.5) * (0.05 / u_res.x) * u_alive; // ≤ 0.05px extra
+        float dX = clamp(jitter + drift, -0.4 / u_res.x, 0.4 / u_res.x);
+        uvR.x += dX; uvG.x += dX; uvB.x += dX;
         // Clamp to avoid wrapping
         uvR = clamp(uvR, vec2(0.0), vec2(1.0));
         uvG = clamp(uvG, vec2(0.0), vec2(1.0));
@@ -88,6 +145,21 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         col.r = texture2D(u_tex, uvR).r;
         col.g = texture2D(u_tex, uvG).g;
         col.b = texture2D(u_tex, uvB).b;
+
+        // Effect 3: triad shimmer (mix at low weight)
+        if (u_alive > 0.0005) {
+          float triad = fract((uvG.x * u_res.x) / 3.0);
+          float sPx = 0.002 * sin(phase * 0.5 + triad * 6.2831853) * u_alive; // very subtle
+          float px = 1.0 / u_res.x;
+          float rShift = (sPx + 0.15) * px;
+          float bShift = -(sPx + 0.15) * px;
+          vec3 triadCol;
+          triadCol.r = texture2D(u_tex, clamp(uvG + vec2(rShift, 0.0), vec2(0.0), vec2(1.0))).r;
+          triadCol.g = col.g;
+          triadCol.b = texture2D(u_tex, clamp(uvG + vec2(bShift, 0.0), vec2(0.0), vec2(1.0))).b;
+          float w = 0.20 * u_alive; // keep luminance modulation small
+          col = mix(col, triadCol, w);
+        }
 
         // CRT effects in shader (subtle by default)
         float I = u_intensity; // shorthand
@@ -177,6 +249,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const k2Loc = gl.getUniformLocation(prog, "u_k2");
     const ctrLoc = gl.getUniformLocation(prog, "u_center");
     const timeLoc = gl.getUniformLocation(prog, "u_time");
+    const aliveLoc = gl.getUniformLocation(prog, "u_alive");
+    const mainsLoc = gl.getUniformLocation(prog, "u_mainsHz");
     const motionLoc = gl.getUniformLocation(prog, "u_motion");
     const intensityLoc = gl.getUniformLocation(prog, "u_intensity");
     if (texLoc) gl.uniform1i(texLoc, 0);
@@ -186,6 +260,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     if (motionLoc) gl.uniform1f(motionLoc, reduceRef.current ? 0.0 : 1.0);
     const cssIntensity = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--crt-intensity")) || 0.1;
     if (intensityLoc) gl.uniform1f(intensityLoc, cssIntensity);
+    if (aliveLoc) gl.uniform1f(aliveLoc, 0.0);
+    if (mainsLoc) gl.uniform1f(mainsLoc, mainsHzRef.current || 60);
 
     // Texture
     const tex = gl.createTexture();
@@ -210,7 +286,33 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     // Render pass
     const render = () => {
       if (!prog || !gl) return;
-      if (timeLoc) gl.uniform1f(timeLoc, performance.now() * 0.001);
+      const now = performance.now();
+      // Time uniform (seconds)
+      if (timeLoc) gl.uniform1f(timeLoc, now * 0.001);
+      // FPS monitor for auto-gate
+      const dt = Math.max(0.0001, (now - lastRenderAtRef.current) * 0.001);
+      lastRenderAtRef.current = now;
+      const fps = 1.0 / dt;
+      fpsEMARef.current = fpsEMARef.current * 0.9 + fps * 0.1;
+      if (fpsEMARef.current < 30) {
+        if (belowSinceRef.current == null) belowSinceRef.current = now;
+        if (!gateRef.current && belowSinceRef.current && now - belowSinceRef.current > 3000) {
+          gateRef.current = true;
+        }
+      } else {
+        belowSinceRef.current = null;
+        if (gateRef.current) {
+          // Require ~1.5s of good FPS to lift gate
+          if (aboveSinceRef.current == null) aboveSinceRef.current = now;
+          if (now - aboveSinceRef.current > 1500) gateRef.current = false;
+        } else {
+          aboveSinceRef.current = null;
+        }
+      }
+      const requested = reduceRef.current ? 0 : aliveRef.current;
+      const effectiveAlive = Math.min(requested, gateRef.current ? 0.3 : 1.0);
+      if (aliveLoc) gl.uniform1f(aliveLoc, effectiveAlive);
+      if (mainsLoc) gl.uniform1f(mainsLoc, mainsHzRef.current || 60);
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -305,6 +407,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     // Initial capture now triggered via 'ascii-ready' event
 
     return () => {
+      window.removeEventListener("crt-alive", onAlive);
       ro.disconnect();
       mo.disconnect();
       window.removeEventListener("resize", scheduleCapture);
