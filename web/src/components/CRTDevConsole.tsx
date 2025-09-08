@@ -39,8 +39,6 @@ declare global {
 
 export default function CRTDevConsole() {
   useEffect(() => {
-    if (process.env.NODE_ENV === "production") return;
-
     let last: CRTState = { ...defaultState };
     const onState = (ev: Event) => {
       const e = ev as CustomEvent<CRTState>;
