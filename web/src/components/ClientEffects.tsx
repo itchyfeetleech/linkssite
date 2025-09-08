@@ -33,11 +33,11 @@ export default function ClientEffects() {
       }
       void main(){
         vec2 uv = gl_FragCoord.xy / u_res.xy;
-        float n = noise(uv*3.0 + u_time*0.02);
-        vec3 c1 = vec3(0.06,0.07,0.10);
-        vec3 c2 = vec3(0.10,0.11,0.14);
-        vec3 col = mix(c1, c2, n);
-        gl_FragColor = vec4(col, 1.0);
+        // Solid near-black base with very subtle monochrome grain
+        float n = noise(uv*160.0 + u_time*0.05);
+        float grain = (n - 0.5) * 0.02; // +/-1% around black
+        float v = clamp(grain, 0.0, 1.0);
+        gl_FragColor = vec4(vec3(v), 1.0);
       }
     `;
 

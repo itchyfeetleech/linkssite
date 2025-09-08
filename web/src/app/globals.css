@@ -273,7 +273,7 @@ pre.nfo {
 
 /* Background WebGL canvas (BACKGROUND_CANVAS) remains, retinted via CSS */
 .bg { position: fixed; inset: 0; z-index: 0; }
-.bg.webgl { filter: hue-rotate(110deg) saturate(150%) brightness(80%) blur(6px); opacity: 0.7; }
+.bg.webgl { filter: none; opacity: 0.35; }
 .bg.fog { display: none; }
 
 @media (max-width: 640px) {
