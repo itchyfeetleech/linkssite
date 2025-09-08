@@ -17,6 +17,7 @@ type CRTState = {
   buffers?: string;
   decayMs?: { r: number; g: number; b: number };
   halo?: number;
+  beam?: { on: boolean; beamPx: number; modDepth: number; interlace: boolean };
 };
 
 const defaultState: CRTState = {
@@ -37,6 +38,7 @@ type CRTApi = {
   hz: (hz: number) => CRTState;
   phosphor: (opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) => CRTState;
   mode: (m: 'HQ'|'LQ') => void;
+  beam: (opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) => CRTState;
 };
 
 declare global {
@@ -62,6 +64,7 @@ export default function CRTDevConsole() {
           `window.CRT.hz(50|60)                   -> set mains Hz\n` +
           `window.CRT.phosphor({ rMs,gMs,bMs,halo }) -> set decay (s) and halo gain\n`
           + `window.CRT.mode('HQ'|'LQ')           -> force mode and reload\n`
+          + `window.CRT.beam({ on, beamPx, modDepth, interlace }) -> beam controls (HQ only)\n`
         );
       },
       get(): CRTState {
@@ -82,6 +85,7 @@ export default function CRTDevConsole() {
       hz(hz: number) { return api.set(last.alive, hz); },
       phosphor(opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) { setPhosphor(opts); return api.get(); },
       mode(m: 'HQ'|'LQ') { try { localStorage.setItem('crt-mode', m); } catch {} location.reload(); },
+      beam(opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) { window.dispatchEvent(new CustomEvent('crt-beam', { detail: opts })); return api.get(); },
     };
 
     try {
