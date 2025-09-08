@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, VT323 } from "next/font/google";
 import "./globals.css";
 import BootOverlay from "@/components/BootOverlay";
+import CRTDevConsole from "@/components/CRTDevConsole";
 
 const jetbrains = JetBrains_Mono({
   variable: "--font-mono",
@@ -39,6 +40,8 @@ export default function RootLayout({
         {children}
         <BootOverlay />
         {/* SVG filter defs for CRT warp/vignette */}
+        {/* Dev-only console API hook */}
+        <CRTDevConsole />
         <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
           <defs>
             <filter id="crt-barrel">

@@ -1,0 +1,93 @@
+"use client";
+
+// Lightweight dev-only console API to inspect/tweak CRT micro-effects.
+// Exposes window.CRT with get/set helpers in development builds.
+
+import { useEffect } from "react";
+import { setCRTAlive } from "@/components/LensWarp";
+
+type CRTState = {
+  alive: number;
+  effectiveAlive: number;
+  mainsHz: number;
+  fps: number;
+  gated: boolean;
+  reduced: boolean;
+};
+
+const defaultState: CRTState = {
+  alive: 0,
+  effectiveAlive: 0,
+  mainsHz: 60,
+  fps: 60,
+  gated: false,
+  reduced: false,
+};
+
+type CRTApi = {
+  help: () => void;
+  get: () => CRTState;
+  set: (a: number | { alive?: number; mainsHz?: number }, hz?: number) => CRTState;
+  enable: () => CRTState;
+  disable: () => CRTState;
+  hz: (hz: number) => CRTState;
+};
+
+declare global {
+  interface Window { CRT?: CRTApi }
+}
+
+export default function CRTDevConsole() {
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+
+    let last: CRTState = { ...defaultState };
+    const onState = (ev: Event) => {
+      const e = ev as CustomEvent<CRTState>;
+      if (e.detail) last = { ...last, ...e.detail };
+    };
+    window.addEventListener("crt-state", onState as EventListener);
+
+    const api = {
+      help() {
+        console.log(`CRT console API\n\n` +
+          `window.CRT.get()                       -> current state\n` +
+          `window.CRT.set(alive[, mainsHz])       -> set alive [0..1] and optional mains\n` +
+          `window.CRT.set({ alive, mainsHz })     -> same via object\n` +
+          `window.CRT.enable() / window.CRT.disable()\n` +
+          `window.CRT.hz(50|60)                   -> set mains Hz\n`
+        );
+      },
+      get(): CRTState {
+        return { ...last };
+      },
+      set(a: number | Partial<CRTState>, hz?: number) {
+        if (typeof a === "number") {
+          setCRTAlive(a, hz);
+        } else {
+          const alive = typeof a.alive === "number" ? a.alive : last.alive;
+          const mainsHz = typeof a.mainsHz === "number" ? a.mainsHz : (typeof hz === "number" ? hz : last.mainsHz);
+          setCRTAlive(alive, mainsHz);
+        }
+        return api.get();
+      },
+      enable() { return api.set(1); },
+      disable() { return api.set(0); },
+      hz(hz: number) { return api.set(last.alive, hz); },
+    };
+
+    try {
+      Object.defineProperty(window, "CRT", { value: api, writable: false });
+      console.log("CRT dev console ready: window.CRT.help()");
+    } catch {
+      console.warn("Unable to attach window.CRT");
+    }
+
+    return () => {
+      window.removeEventListener("crt-state", onState as EventListener);
+      window.CRT = undefined;
+    };
+  }, []);
+
+  return null;
+}

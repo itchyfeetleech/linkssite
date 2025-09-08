@@ -44,6 +44,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const lastRenderAtRef = useRef<number>(performance.now());
   const belowSinceRef = useRef<number | null>(null);
   const aboveSinceRef = useRef<number | null>(null);
+  const lastStateEmitRef = useRef<number>(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -313,6 +314,25 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       const effectiveAlive = Math.min(requested, gateRef.current ? 0.3 : 1.0);
       if (aliveLoc) gl.uniform1f(aliveLoc, effectiveAlive);
       if (mainsLoc) gl.uniform1f(mainsLoc, mainsHzRef.current || 60);
+
+      // Throttled state emission for dev console (every ~500ms)
+      if (now - lastStateEmitRef.current > 500) {
+        lastStateEmitRef.current = now;
+        try {
+          window.dispatchEvent(
+            new CustomEvent("crt-state", {
+              detail: {
+                alive: aliveRef.current,
+                effectiveAlive,
+                mainsHz: mainsHzRef.current,
+                fps: fpsEMARef.current,
+                gated: gateRef.current,
+                reduced: reduceRef.current,
+              },
+            })
+          );
+        } catch {}
+      }
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
