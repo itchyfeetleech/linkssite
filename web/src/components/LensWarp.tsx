@@ -12,6 +12,11 @@ export function setCRTAlive(alive: number, mainsHz?: number) {
   );
 }
 
+// External control: update phosphor decay (ms) and halo gain
+export function setPhosphor(opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) {
+  window.dispatchEvent(new CustomEvent("crt-phosphor", { detail: opts }));
+}
+
 type Props = {
   // Optional: tweak curvature
   k1?: number; // primary distortion coefficient
@@ -45,6 +50,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const belowSinceRef = useRef<number | null>(null);
   const aboveSinceRef = useRef<number | null>(null);
   const lastStateEmitRef = useRef<number>(0);
+  const decayMsRef = useRef<{ r: number; g: number; b: number }>({ r: 0.09, g: 0.11, b: 0.14 });
+  const haloRef = useRef<number>(1.0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -67,7 +74,119 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const container = canvas.parentElement as HTMLElement | null;
     if (!container) return;
 
-    // Setup GL
+    // Try HQ (WebGL2) pipeline. If initialized, skip LQ path below.
+    const tryInitHQ = () => {
+      const gl2 = canvas.getContext("webgl2", { premultipliedAlpha: true }) as WebGL2RenderingContext | null;
+      if (!gl2) return false;
+
+      // Listen for phosphor/halo updates
+      const onPhosphor = (ev: Event) => {
+        const e = ev as CustomEvent<{ rMs?: number; gMs?: number; bMs?: number; halo?: number }>;
+        if (typeof e.detail?.rMs === "number") decayMsRef.current.r = Math.max(0.01, e.detail.rMs);
+        if (typeof e.detail?.gMs === "number") decayMsRef.current.g = Math.max(0.01, e.detail.gMs);
+        if (typeof e.detail?.bMs === "number") decayMsRef.current.b = Math.max(0.01, e.detail.bMs);
+        if (typeof e.detail?.halo === "number") haloRef.current = Math.max(0, e.detail.halo);
+      };
+      window.addEventListener("crt-phosphor", onPhosphor);
+
+      const extCBF = gl2.getExtension("EXT_color_buffer_float");
+      const use16F = !!extCBF;
+
+      // Quad
+      const vbo = gl2.createBuffer()!;
+      gl2.bindBuffer(gl2.ARRAY_BUFFER, vbo);
+      gl2.bufferData(gl2.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1]), gl2.STATIC_DRAW);
+
+      const vsrc = `#version 300 es\nprecision highp float; layout(location=0) in vec2 position; out vec2 vUv; void main(){ vUv=(position+1.0)*0.5; gl_Position=vec4(position,0.0,1.0);} `;
+      const fs1 = `#version 300 es\nprecision highp float; layout(location=0) out vec4 oPhi; layout(location=1) out vec4 oBright; in vec2 vUv;\nuniform sampler2D u_tex; uniform sampler2D u_prevPhi; uniform vec2 u_res; uniform vec2 u_center; uniform float u_k1; uniform float u_k2; uniform float u_time; uniform float u_dt; uniform float u_alive; uniform float u_mainsHz; uniform vec3 u_decayF;\nfloat hash1(float x){ return fract(sin(x*127.1)*43758.5453123); }\nvec2 barrel(vec2 uv, float k1, float k2){ vec2 p=(uv-u_center)*2.0; float aspect=u_res.x/u_res.y; p.x*=aspect; float r2=dot(p,p); float f=1.0 + k1*r2 + k2*r2*r2; p*=f; p.x/=aspect; return u_center + p*0.5; }\nvoid main(){ float phase=6.2831853*u_mainsHz*u_time; float line=float(int(gl_FragCoord.y)); float jitter=(0.25/u_res.x)*sin(phase+line*0.015)*u_alive; float drift=sin(phase*0.07+line*0.011)*(0.15/u_res.x)*u_alive; float t2=floor(u_time*2.0); float n=hash1(line+t2*31.7); drift+=(n-0.5)*(0.05/u_res.x)*u_alive; float dX=clamp(jitter+drift,-0.4/u_res.x,0.4/u_res.x); vec2 uvR=barrel(vUv+vec2( 0.0002,0.0),u_k1,u_k2); vec2 uvG=barrel(vUv,u_k1,u_k2); vec2 uvB=barrel(vUv+vec2(-0.0002,0.0),u_k1,u_k2); uvR.x+=dX; uvG.x+=dX; uvB.x+=dX; uvR=clamp(uvR,vec2(0.0),vec2(1.0)); uvG=clamp(uvG,vec2(0.0),vec2(1.0)); uvB=clamp(uvB,vec2(0.0),vec2(1.0)); vec3 src; src.r=texture(u_tex,uvR).r; src.g=texture(u_tex,uvG).g; src.b=texture(u_tex,uvB).b; vec3 baseLin=pow(max(src,vec3(0.0)), vec3(2.2)); vec3 prev=texture(u_prevPhi, vUv).rgb; vec3 newPhi=max(baseLin, mix(vec3(0.0), prev*u_decayF, u_alive)); vec3 bright=max(newPhi-vec3(0.6), vec3(0.0)); oPhi=vec4(newPhi,1.0); oBright=vec4(bright,1.0);} `;
+      const fs2 = `#version 300 es\nprecision highp float; out vec4 frag; in vec2 vUv; uniform sampler2D u_phi; uniform sampler2D u_bright; uniform sampler2D u_noise; uniform vec2 u_res; uniform float u_alive; uniform float u_halo;\nvec3 bloom(vec2 uv){ vec2 px=1.0/u_res; vec3 s=vec3(0.0); for(int i=0;i<8;i++){ float a=6.2831853*float(i)/8.0; vec2 d=vec2(cos(a),sin(a)); s+=textureLod(u_bright, uv+d*px*1.5,1.0).rgb*0.20; s+=textureLod(u_bright, uv+d*px*2.5,2.0).rgb*0.12; s+=textureLod(u_bright, uv+d*px*4.0,3.0).rgb*0.08; } return s; }\nvoid main(){ vec3 phi=texture(u_phi,vUv).rgb; vec3 halo=bloom(vUv)*(0.7*u_alive); vec3 maxHalo=0.06*max(phi,vec3(0.0))*u_alive; halo=clamp(halo*u_halo, vec3(0.0), maxHalo); vec3 colLin=phi+halo; float tri=fract((vUv.x*u_res.x)/3.0); vec3 mask=normalize(vec3(smoothstep(0.0,0.33,tri), smoothstep(0.33,0.66,tri), smoothstep(0.66,1.0,tri))+1e-3); colLin*=mix(vec3(1.0), mask*3.0, 0.03*u_alive); vec3 srgb=pow(max(colLin,vec3(0.0)), vec3(1.0/2.2)); float n=texture(u_noise, vUv*8.0).r; srgb += (n-0.5)*(1.5/255.0); frag=vec4(clamp(srgb,0.0,1.0),1.0);} `;
+
+      const compile = (type: number, src: string) => { const sh = gl2.createShader(type)!; gl2.shaderSource(sh, src); gl2.compileShader(sh); if (!gl2.getShaderParameter(sh, gl2.COMPILE_STATUS)) { console.error(gl2.getShaderInfoLog(sh)); } return sh; };
+      const vs = compile(gl2.VERTEX_SHADER, vsrc);
+      const ps1 = compile(gl2.FRAGMENT_SHADER, fs1);
+      const ps2 = compile(gl2.FRAGMENT_SHADER, fs2);
+      const prog1 = gl2.createProgram()!; gl2.attachShader(prog1, vs); gl2.attachShader(prog1, ps1); gl2.linkProgram(prog1);
+      if (!gl2.getProgramParameter(prog1, gl2.LINK_STATUS)) { console.error(gl2.getProgramInfoLog(prog1)); window.removeEventListener("crt-phosphor", onPhosphor); return false; }
+      const prog2 = gl2.createProgram()!; gl2.attachShader(prog2, vs); gl2.attachShader(prog2, ps2); gl2.linkProgram(prog2);
+      if (!gl2.getProgramParameter(prog2, gl2.LINK_STATUS)) { console.error(gl2.getProgramInfoLog(prog2)); window.removeEventListener("crt-phosphor", onPhosphor); return false; }
+
+      gl2.enableVertexAttribArray(0); gl2.vertexAttribPointer(0, 2, gl2.FLOAT, false, 0, 0);
+
+      // Textures & FBOs
+      const createTex = (mip: boolean) => { const t = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, t); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, mip?gl2.LINEAR_MIPMAP_LINEAR:gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); return t; };
+      const phiA = createTex(false), phiB = createTex(false), brightTex = createTex(true);
+      const baseTex = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE);
+      const noiseTex = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, noiseTex); const N=64; const noise = new Uint8Array(N*N); for(let i=0;i<N*N;i++){ noise[i]=(Math.random()*256)|0; } gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.R8,N,N,0,gl2.RED,gl2.UNSIGNED_BYTE,noise); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.REPEAT); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.REPEAT);
+      const fbo = gl2.createFramebuffer()!;
+
+      let cw=1, ch=1; let readPhi = phiA, writePhi = phiB;
+      const resizeTex = (t: WebGLTexture, w: number, h: number) => { gl2.bindTexture(gl2.TEXTURE_2D, t); const ifmt = use16F ? gl2.RGBA16F : gl2.RGBA8; const type = use16F ? gl2.HALF_FLOAT : gl2.UNSIGNED_BYTE; gl2.texImage2D(gl2.TEXTURE_2D, 0, ifmt, w, h, 0, gl2.RGBA, type, null); };
+      const resizeAll = () => { const rect = container.getBoundingClientRect(); const dpr = Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; const w=Math.max(1,Math.floor(rect.width)); const h=Math.max(1,Math.floor(rect.height)); canvas.width=Math.floor(w*dpr); canvas.height=Math.floor(h*dpr); canvas.style.width=`${w}px`; canvas.style.height=`${h}px`; gl2.viewport(0,0,canvas.width,canvas.height); cw=canvas.width; ch=canvas.height; resizeTex(phiA,cw,ch); resizeTex(phiB,cw,ch); resizeTex(brightTex,cw,ch); };
+      resizeAll();
+
+      // Uniform locations
+      const u1 = { tex: gl2.getUniformLocation(prog1,"u_tex"), prev: gl2.getUniformLocation(prog1,"u_prevPhi"), res: gl2.getUniformLocation(prog1,"u_res"), ctr: gl2.getUniformLocation(prog1,"u_center"), k1: gl2.getUniformLocation(prog1,"u_k1"), k2: gl2.getUniformLocation(prog1,"u_k2"), time: gl2.getUniformLocation(prog1,"u_time"), dt: gl2.getUniformLocation(prog1,"u_dt"), alive: gl2.getUniformLocation(prog1,"u_alive"), mains: gl2.getUniformLocation(prog1,"u_mainsHz"), decayF: gl2.getUniformLocation(prog1,"u_decayF") } as const;
+      const u2 = { phi: gl2.getUniformLocation(prog2,"u_phi"), bright: gl2.getUniformLocation(prog2,"u_bright"), noise: gl2.getUniformLocation(prog2,"u_noise"), res: gl2.getUniformLocation(prog2,"u_res"), alive: gl2.getUniformLocation(prog2,"u_alive"), halo: gl2.getUniformLocation(prog2,"u_halo") } as const;
+
+      // Render
+      const render = () => {
+        const now = performance.now(); const dt = Math.max(0.0001, (now - lastRenderAtRef.current) * 0.001); lastRenderAtRef.current = now; const fps = 1.0/dt; fpsEMARef.current = fpsEMARef.current*0.9 + fps*0.1;
+        if (fpsEMARef.current < 30) { if (belowSinceRef.current==null) belowSinceRef.current=now; if (!gateRef.current && belowSinceRef.current && now - belowSinceRef.current > 3000) gateRef.current = true; } else { belowSinceRef.current=null; if (gateRef.current) { if (aboveSinceRef.current==null) aboveSinceRef.current=now; if (now - aboveSinceRef.current > 1500) gateRef.current=false; } else { aboveSinceRef.current=null; } }
+        const requested = reduceRef.current ? 0 : aliveRef.current; const effectiveAlive = Math.min(requested, gateRef.current ? 0.3 : 1.0);
+
+        // Pass 1
+        gl2.useProgram(prog1);
+        gl2.bindFramebuffer(gl2.FRAMEBUFFER, fbo);
+        gl2.framebufferTexture2D(gl2.FRAMEBUFFER, gl2.COLOR_ATTACHMENT0, gl2.TEXTURE_2D, writePhi, 0);
+        gl2.framebufferTexture2D(gl2.FRAMEBUFFER, gl2.COLOR_ATTACHMENT1, gl2.TEXTURE_2D, brightTex, 0);
+        gl2.drawBuffers([gl2.COLOR_ATTACHMENT0, gl2.COLOR_ATTACHMENT1]);
+        gl2.clearColor(0,0,0,0); gl2.clear(gl2.COLOR_BUFFER_BIT);
+        gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); if (u1.tex) gl2.uniform1i(u1.tex, 0);
+        gl2.activeTexture(gl2.TEXTURE1); gl2.bindTexture(gl2.TEXTURE_2D, readPhi); if (u1.prev) gl2.uniform1i(u1.prev, 1);
+        if (u1.res) gl2.uniform2f(u1.res, cw, ch); if (u1.ctr) gl2.uniform2f(u1.ctr, center.x, center.y);
+        if (u1.k1) gl2.uniform1f(u1.k1, k1); if (u1.k2) gl2.uniform1f(u1.k2, k2);
+        if (u1.time) gl2.uniform1f(u1.time, now*0.001); if (u1.dt) gl2.uniform1f(u1.dt, dt);
+        if (u1.alive) gl2.uniform1f(u1.alive, effectiveAlive); if (u1.mains) gl2.uniform1f(u1.mains, mainsHzRef.current || 60);
+        const dF = [Math.exp(-dt/decayMsRef.current.r), Math.exp(-dt/decayMsRef.current.g), Math.exp(-dt/decayMsRef.current.b)]; if (u1.decayF) gl2.uniform3f(u1.decayF, dF[0], dF[1], dF[2]);
+        gl2.drawArrays(gl2.TRIANGLES, 0, 6);
+        gl2.bindTexture(gl2.TEXTURE_2D, brightTex); gl2.generateMipmap(gl2.TEXTURE_2D);
+
+        // Composite
+        gl2.bindFramebuffer(gl2.FRAMEBUFFER, null); gl2.useProgram(prog2);
+        gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, writePhi); if (u2.phi) gl2.uniform1i(u2.phi, 0);
+        gl2.activeTexture(gl2.TEXTURE1); gl2.bindTexture(gl2.TEXTURE_2D, brightTex); if (u2.bright) gl2.uniform1i(u2.bright, 1);
+        gl2.activeTexture(gl2.TEXTURE2); gl2.bindTexture(gl2.TEXTURE_2D, noiseTex); if (u2.noise) gl2.uniform1i(u2.noise, 2);
+        if (u2.res) gl2.uniform2f(u2.res, cw, ch); if (u2.alive) gl2.uniform1f(u2.alive, effectiveAlive); if (u2.halo) gl2.uniform1f(u2.halo, haloRef.current);
+        gl2.drawArrays(gl2.TRIANGLES, 0, 6);
+
+        if (now - lastStateEmitRef.current > 500) { lastStateEmitRef.current = now; try { window.dispatchEvent(new CustomEvent("crt-state", { detail: { alive: aliveRef.current, effectiveAlive, mainsHz: mainsHzRef.current, fps: fpsEMARef.current, gated: gateRef.current, reduced: reduceRef.current, mode: "HQ", buffers: (use16F?"rgba16f":"rgba8")+"+mrt+mip", decayMs: { ...decayMsRef.current }, halo: haloRef.current } })); } catch {} }
+
+        const t=readPhi; readPhi=writePhi; writePhi=t;
+        if (!reduceRef.current) rafRef.current = requestAnimationFrame(render);
+      };
+
+      // Capture
+      let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { const dataUrl = await htmlToImage.toPng(container, { pixelRatio: dprRef.current, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; } };
+      const scheduleCapture = () => { if (pendingRef.current) return; const since = performance.now() - lastCaptureAtRef.current; const delay = Math.max(200, 200 - since); pendingRef.current = window.setTimeout(() => { pendingRef.current=null; capture(); }, delay); };
+
+      const ro = new ResizeObserver(() => { const rect=container.getBoundingClientRect(); const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
+      window.addEventListener("resize", scheduleCapture); window.addEventListener("ascii-ready", capture);
+
+      // Context loss cleanup
+      const cleanup = () => { window.removeEventListener("crt-phosphor", onPhosphor); ro.disconnect(); window.removeEventListener("resize", scheduleCapture); window.removeEventListener("ascii-ready", capture); if (rafRef.current) cancelAnimationFrame(rafRef.current); gl2.deleteFramebuffer(fbo); gl2.deleteTexture(phiA); gl2.deleteTexture(phiB); gl2.deleteTexture(brightTex); gl2.deleteTexture(noiseTex); gl2.deleteTexture(baseTex); gl2.deleteProgram(prog1); gl2.deleteProgram(prog2); gl2.deleteShader(vs); gl2.deleteShader(ps1); gl2.deleteShader(ps2); gl2.deleteBuffer(vbo); };
+      const onLost = (e: Event) => { e.preventDefault(); cleanup(); };
+      canvas.addEventListener("webglcontextlost", onLost as EventListener, false);
+
+      // Start
+      render();
+      return true;
+    };
+
+    if (tryInitHQ()) {
+      return () => { /* HQ path handles its own cleanup */ };
+    }
+
+    // Setup GL (LQ fallback)
     const gl = canvas.getContext("webgl", { premultipliedAlpha: true });
     if (!gl) return;
     glRef.current = gl;
@@ -318,6 +437,10 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
                 fps: fpsEMARef.current,
                 gated: gateRef.current,
                 reduced: reduceRef.current,
+                mode: "LQ",
+                buffers: "none",
+                decayMs: { ...decayMsRef.current },
+                halo: haloRef.current,
               },
             })
           );

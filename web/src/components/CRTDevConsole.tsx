@@ -4,7 +4,7 @@
 // Exposes window.CRT with get/set helpers in development builds.
 
 import { useEffect } from "react";
-import { setCRTAlive } from "@/components/LensWarp";
+import { setCRTAlive, setPhosphor } from "@/components/LensWarp";
 
 type CRTState = {
   alive: number;
@@ -13,6 +13,10 @@ type CRTState = {
   fps: number;
   gated: boolean;
   reduced: boolean;
+  mode?: 'HQ'|'LQ';
+  buffers?: string;
+  decayMs?: { r: number; g: number; b: number };
+  halo?: number;
 };
 
 const defaultState: CRTState = {
@@ -31,6 +35,7 @@ type CRTApi = {
   enable: () => CRTState;
   disable: () => CRTState;
   hz: (hz: number) => CRTState;
+  phosphor: (opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) => CRTState;
 };
 
 declare global {
@@ -53,7 +58,8 @@ export default function CRTDevConsole() {
           `window.CRT.set(alive[, mainsHz])       -> set alive [0..1] and optional mains\n` +
           `window.CRT.set({ alive, mainsHz })     -> same via object\n` +
           `window.CRT.enable() / window.CRT.disable()\n` +
-          `window.CRT.hz(50|60)                   -> set mains Hz\n`
+          `window.CRT.hz(50|60)                   -> set mains Hz\n` +
+          `window.CRT.phosphor({ rMs,gMs,bMs,halo }) -> set decay (s) and halo gain\n`
         );
       },
       get(): CRTState {
@@ -72,6 +78,7 @@ export default function CRTDevConsole() {
       enable() { return api.set(1); },
       disable() { return api.set(0); },
       hz(hz: number) { return api.set(last.alive, hz); },
+      phosphor(opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) { setPhosphor(opts); return api.get(); },
     };
 
     try {
