@@ -27,7 +27,6 @@ export const Sections = {
 
   // Visual processing layers
   LENS_WARP_CANVAS: "LENS_WARP_CANVAS",
-  COPPER_SCROLLER: "COPPER_SCROLLER",
 } as const;
 
 export type SectionKey = keyof typeof Sections;
@@ -44,4 +43,3 @@ export const LinkGroups = {
 } as const;
 
 export type LinkGroup = typeof LinkGroups[keyof typeof LinkGroups];
-

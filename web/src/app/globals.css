@@ -86,17 +86,41 @@ body {
 /* Program window (reusing .terminal styles) */
 .window { margin: 0 auto; }
 
-/* Bottom dock */
-.dock {
+/* Bottom taskbar */
+.taskbar {
   position: fixed;
-  left: 50%; bottom: 16px; transform: translateX(-50%);
-  height: 56px; padding: 8px 12px; border-radius: 14px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.3), rgba(0,0,0,0.2));
-  border: 1px solid rgba(255,255,255,0.06);
-  display: flex; gap: 10px; align-items: center;
+  left: 0; right: 0; bottom: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, rgba(10,12,14,0.8), rgba(10,12,14,0.4));
+  border-top: 1px solid rgba(0,255,166,0.15);
   z-index: 3;
+  color: var(--fg);
 }
-.dock .icon { width: 36px; height: 36px; border-radius: 8px; background: rgba(255,255,255,0.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05); }
+.taskbar .task {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--fg);
+  font: 13px/1 var(--font-pixel);
+}
+.taskbar .task[aria-current="true"] {
+  background: rgba(0,255,166,0.08);
+  border-color: rgba(0,255,166,0.25);
+}
+.taskbar .task img {
+  width: 16px; height: 16px;
+  display: inline-block;
+  filter: drop-shadow(0 0 2px rgba(0,255,166,0.15));
+}
 
 /* Terminal window (TERMINAL_WINDOW) */
 .terminal {
@@ -213,15 +237,7 @@ body {
 .screen { padding: 18px 18px 24px; position: relative; overflow: hidden; }
 /* Aggregate bloom: subtle content bleed */
 .screen { filter: none; }
-canvas.scroller-layer {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: clamp(180px, 36vh, 320px);
-  width: 100%;
-  pointer-events: none;
-  mix-blend-mode: screen;
-  opacity: 0.9;
-}
+
 
 /* WebGL lens warp overlay (LENS_WARP_CANVAS) */
 canvas.lens-warp {

@@ -60,12 +60,13 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Optional: simple dock placeholder */}
-          <div className="dock" aria-hidden>
-            <div className="icon" title="Links" />
-            <div className="icon" title="Games" />
-            <div className="icon" title="Other" />
-          </div>
+          {/* Bottom taskbar with active terminal icon */}
+          <nav className="taskbar" role="navigation" aria-label="Taskbar">
+            <div className="task" aria-current="true" title="NFO Viewer">
+              <img src="/window.svg" alt="" aria-hidden />
+              <span>Terminal</span>
+            </div>
+          </nav>
         </main>
 
         {/* Full-viewport CRT pipeline overlay: captures crt-scene excluding itself */}

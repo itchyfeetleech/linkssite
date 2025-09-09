@@ -22,10 +22,8 @@ Visual Layers / Effects
 - BACKGROUND_CANVAS: Fullscreen WebGL background (`#bgCanvas`).
 - FOG_OVERLAY: Optional fog overlay on background (`#fogOverlay`).
 - LENS_WARP_CANVAS: WebGL canvas that lens-warps the screen content.
-- COPPER_SCROLLER: Decorative canvas scroller layer (if rendered).
 - BOOT_OVERLAY: Initial black overlay that hides the DOM until WebGL is ready.
 
 See also
 - TS constants: `web/src/lib/sections.ts`
 - Usage examples: `web/src/app/page.tsx`, `web/src/components/*.tsx`
-
