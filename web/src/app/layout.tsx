@@ -16,8 +16,30 @@ const vt323 = VT323({
 });
 
 export const metadata: Metadata = {
-  title: "HoppCX .NFO",
+  metadataBase: new URL("https://hoppcx.top"),
+  title: {
+    default: "HoppCX .NFO",
+    template: "%s · HoppCX",
+  },
   description: "Retro ANSI/ASCII terminal profile",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "HoppCX .NFO",
+    title: "HoppCX .NFO",
+    description: "Retro ANSI/ASCII terminal profile",
+    images: [
+      { url: "/vercel.svg", width: 512, height: 512, alt: "logo" }
+    ],
+  },
+  twitter: {
+    card: "summary",
+    title: "HoppCX .NFO",
+    description: "Retro ANSI/ASCII terminal profile",
+    images: ["/vercel.svg"],
+  },
+  robots: { index: true, follow: true },
   icons: {
     icon: "/assets/icons/faceit.svg",
   },
@@ -35,7 +57,22 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-theme="dark">
-      <head />
+      <head>
+        {/* Security meta (lenient for Next static export) */}
+        <meta
+          httpEquiv="Content-Security-Policy"
+          content="default-src 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+        />
+        <meta name="referrer" content="strict-origin-when-cross-origin" />
+        <meta httpEquiv="Permissions-Policy" content="geolocation=(), camera=(), microphone=()" />
+        {/* Basic JSON-LD profile card */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Person",
+          "name": "HoppCX",
+          "url": "https://hoppcx.top/"
+        }) }} />
+      </head>
       <body className={`${jetbrains.variable} ${vt323.variable} antialiased`}>
         {/* Skip link for keyboard and screen readers */}
         <a href="#main-content" className="skip-link">Skip to content</a>

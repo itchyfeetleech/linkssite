@@ -12,10 +12,16 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+/blob-report
 
 # next.js
 /.next/
 /out/
+
+# lighthouse
+/.lighthouseci
 
 # production
 /build

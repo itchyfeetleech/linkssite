@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:e2e": "playwright test",
+    "test:ci": "playwright test --reporter=dot",
+    "lhci": "lhci autorun"
   },
   "dependencies": {
     "html-to-image": "^1.11.11",
@@ -18,6 +21,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@lhci/cli": "^0.13.0",
+    "@playwright/test": "^1.55.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -25,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.2",
     "eslint-config-prettier": "^10.1.8",
+    "http-server": "^14.1.1",
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "typescript": "^5"

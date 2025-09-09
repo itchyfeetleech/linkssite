@@ -1,6 +1,5 @@
-import ClientEffects from "@/components/ClientEffects";
 import NfoBanner from "@/components/NfoBanner";
-import LensWarp from "@/components/LensWarp";
+import InteractiveCRT from "@/components/InteractiveCRT";
 import { profileLinks, gameLinks, otherLinks } from "@/data/links";
 import { Sections, LinkGroups } from "@/lib/sections";
 
@@ -9,7 +8,6 @@ export default function Home() {
     <>
       {/* Wrap the entire scene so the CRT can postprocess full viewport */}
       <div id="crt-scene" className="crt-scene" data-section={Sections.SHELL_ROOT}>
-        <ClientEffects />
         {/* Use native landmark semantics; avoid role="application" */}
         <main id="main-content" className="desktop crt" aria-label="Desktop Shell">
           {/* Simple OS-like top bar */}
@@ -71,7 +69,7 @@ export default function Home() {
         </main>
 
         {/* Full-viewport CRT pipeline overlay: captures crt-scene excluding itself */}
-        <LensWarp />
+        <InteractiveCRT />
       </div>
     </>
   );
