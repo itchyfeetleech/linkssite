@@ -10,7 +10,8 @@ export default function Home() {
       {/* Wrap the entire scene so the CRT can postprocess full viewport */}
       <div id="crt-scene" className="crt-scene" data-section={Sections.SHELL_ROOT}>
         <ClientEffects />
-        <main className="desktop crt" role="application" aria-label="Desktop Shell">
+        {/* Use native landmark semantics; avoid role="application" */}
+        <main id="main-content" className="desktop crt" aria-label="Desktop Shell">
           {/* Simple OS-like top bar */}
           <div className="topbar" aria-hidden>
             <div className="brand">linksshell</div>
@@ -32,7 +33,7 @@ export default function Home() {
                 {profileLinks.map((l) => (
                   <li key={l.id} className="nfo-item" data-section={Sections.LINK_ITEM} data-group={LinkGroups.PROFILE}>
                     <span className="nfo-key">{l.label}</span>
-                    <span className="nfo-arrow">\u001a</span>
+                    <span className="nfo-arrow" aria-hidden>›</span>
                     <a href={l.href} target="_blank" rel="noopener noreferrer">
                       {l.href}
                     </a>
@@ -41,7 +42,7 @@ export default function Home() {
                 {gameLinks.map((l) => (
                   <li key={l.id} className="nfo-item" data-section={Sections.LINK_ITEM} data-group={LinkGroups.GAMES}>
                     <span className="nfo-key">{l.ariaLabel}</span>
-                    <span className="nfo-arrow">\u001a</span>
+                    <span className="nfo-arrow" aria-hidden>›</span>
                     <a href={l.href} target="_blank" rel="noopener noreferrer">
                       {l.href}
                     </a>
@@ -50,7 +51,7 @@ export default function Home() {
                 {otherLinks.map((l) => (
                   <li key={l.id} className="nfo-item" data-section={Sections.LINK_ITEM} data-group={LinkGroups.OTHER}>
                     <span className="nfo-key">{l.label}</span>
-                    <span className="nfo-arrow">\u001a</span>
+                    <span className="nfo-arrow" aria-hidden>›</span>
                     <a href={l.href} target="_blank" rel="noopener noreferrer">
                       {l.href}
                     </a>

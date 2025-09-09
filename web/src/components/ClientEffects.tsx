@@ -5,6 +5,8 @@ import { Sections } from "@/lib/sections";
 
 export default function ClientEffects() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const cursorElRef = useRef<HTMLDivElement | null>(null);
+  const cursorPosRef = useRef<{ x: number; y: number; inside: boolean }>({ x: 0, y: 0, inside: false });
 
   useEffect(() => {
     // WebGL background
@@ -21,6 +23,8 @@ export default function ClientEffects() {
       precision mediump float;
       uniform vec2 u_res;
       uniform float u_time;
+      uniform vec2 u_cursor;   // cursor in pixels
+      uniform float u_cursor_on; // 0 or 1
       float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453123); }
       float noise(vec2 p){
         vec2 i = floor(p), f = fract(p);
@@ -31,8 +35,23 @@ export default function ClientEffects() {
         vec2 u = f*f*(3.0-2.0*f);
         return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
       }
+      vec2 lensWarp(vec2 uv, vec2 center, float radius, float strength) {
+        // Pull uv slightly toward center with smooth falloff inside radius
+        vec2 d = uv - center;
+        float dist = length(d);
+        if (dist > radius || radius <= 0.0) return uv;
+        float fall = 1.0 - clamp(dist / radius, 0.0, 1.0);
+        float k = strength * fall * fall; // stronger at center
+        return uv - d * k;
+      }
       void main(){
         vec2 uv = gl_FragCoord.xy / u_res.xy;
+        // Cursor-driven micro lens warp (CRT "gravity")
+        if (u_cursor_on > 0.5) {
+          vec2 c = u_cursor / u_res; // normalized
+          float rad = 120.0 / min(u_res.x, u_res.y); // ~120px radius
+          uv = lensWarp(uv, c, rad, 0.08);
+        }
         // Solid near-black base with very subtle monochrome grain
         float n = noise(uv*160.0 + u_time*0.05);
         float grain = (n - 0.5) * 0.02; // +/-1% around black
@@ -63,6 +82,8 @@ export default function ClientEffects() {
     const posLoc = gl.getAttribLocation(prog, "position");
     const timeLoc = gl.getUniformLocation(prog, "u_time");
     const resLoc = gl.getUniformLocation(prog, "u_res");
+    const cursorLoc = gl.getUniformLocation(prog, "u_cursor");
+    const cursorOnLoc = gl.getUniformLocation(prog, "u_cursor_on");
 
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
@@ -86,6 +107,10 @@ export default function ClientEffects() {
     const render = (t: number) => {
       if (timeLoc) gl.uniform1f(timeLoc, t * 0.001);
       if (resLoc) gl.uniform2f(resLoc, canvas.width, canvas.height);
+      // Update cursor uniforms
+      const { x, y, inside } = cursorPosRef.current;
+      if (cursorLoc) gl.uniform2f(cursorLoc, x, canvas.height - y); // flip Y to GL coords
+      if (cursorOnLoc) gl.uniform1f(cursorOnLoc, inside ? 1.0 : 0.0);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       if (!reduce) rafId = requestAnimationFrame(render);
     };
@@ -103,7 +128,39 @@ export default function ClientEffects() {
   }, []);
 
   useEffect(() => {
-    // Tilt interactions
+    // Cursor overlay and tilt interactions
+    const scene = document.getElementById("crt-scene");
+    const canvas = canvasRef.current;
+    const cursorEl = cursorElRef.current;
+    if (!scene || !canvas || !cursorEl) return;
+
+    const show = () => {
+      scene.classList.add("hover-cursor");
+      cursorEl.style.opacity = "1";
+    };
+    const hide = () => {
+      scene.classList.remove("hover-cursor");
+      cursorEl.style.opacity = "0";
+      cursorPosRef.current.inside = false;
+    };
+
+    const updateCursor = (e: MouseEvent) => {
+      const r = scene.getBoundingClientRect();
+      const x = e.clientX;
+      const y = e.clientY;
+      const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      cursorPosRef.current = { x, y, inside };
+      if (inside) {
+        cursorEl.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+        show();
+      } else {
+        hide();
+      }
+    };
+
+    window.addEventListener("mousemove", updateCursor);
+    window.addEventListener("mouseleave", hide);
+
     const links = document.querySelectorAll<HTMLElement>(".link");
     const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
     const cbs: Array<() => void> = [];
@@ -138,6 +195,8 @@ export default function ClientEffects() {
       });
     });
     return () => {
+      window.removeEventListener("mousemove", updateCursor);
+      window.removeEventListener("mouseleave", hide);
       cbs.forEach((fn) => fn());
     };
   }, []);
@@ -147,6 +206,8 @@ export default function ClientEffects() {
       {/* BACKGROUND_CANVAS + FOG_OVERLAY */}
       <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" data-section={Sections.BACKGROUND_CANVAS} />
       <div id="fogOverlay" className="bg fog" data-section={Sections.FOG_OVERLAY} />
+      {/* Custom CRT cursor overlay (ring) */}
+      <div ref={cursorElRef} className="crt-cursor" aria-hidden />
     </>
   );
 }

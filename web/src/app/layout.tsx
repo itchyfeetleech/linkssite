@@ -37,6 +37,8 @@ export default function RootLayout({
     <html lang="en" data-theme="dark">
       <head />
       <body className={`${jetbrains.variable} ${vt323.variable} antialiased`}>
+        {/* Skip link for keyboard and screen readers */}
+        <a href="#main-content" className="skip-link">Skip to content</a>
         {children}
         <BootOverlay />
         {/* SVG filter defs for CRT warp/vignette */}
