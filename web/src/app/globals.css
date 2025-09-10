@@ -270,7 +270,8 @@ body {
   pointer-events: none;
   opacity: 0;
   will-change: transform;
-  z-index: 4; /* above background, below lens warp if any */
+  /* ensure cursor stays visible above lens-warp overlay */
+  z-index: 6;
 }
 
 
