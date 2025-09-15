@@ -136,7 +136,7 @@ export default function ClientEffects() {
 
     const show = () => {
       scene.classList.add("hover-cursor");
-      cursorEl.style.opacity = "1";
+      cursorEl.style.opacity = scene.classList.contains("cursor-native") ? "0" : "1";
     };
     const hide = () => {
       scene.classList.remove("hover-cursor");
@@ -159,7 +159,9 @@ export default function ClientEffects() {
     };
 
     window.addEventListener("mousemove", updateCursor);
-    window.addEventListener("mouseleave", hide);
+    document.addEventListener("pointerleave", hide);
+    window.addEventListener("blur", hide);
+    document.addEventListener("visibilitychange", hide);
 
     const links = document.querySelectorAll<HTMLElement>(".link");
     const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
@@ -196,7 +198,9 @@ export default function ClientEffects() {
     });
     return () => {
       window.removeEventListener("mousemove", updateCursor);
-      window.removeEventListener("mouseleave", hide);
+      document.removeEventListener("pointerleave", hide);
+      window.removeEventListener("blur", hide);
+      document.removeEventListener("visibilitychange", hide);
       cbs.forEach((fn) => fn());
     };
   }, []);
