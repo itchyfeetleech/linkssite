@@ -144,12 +144,11 @@ export default function ClientEffects() {
       cursorPosRef.current.inside = false;
     };
 
-    const updateCursor = (e: MouseEvent) => {
-      const r = scene.getBoundingClientRect();
-      const x = e.clientX;
-      const y = e.clientY;
-      const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
-      cursorPosRef.current = { x, y, inside };
+    // Coalesce mousemove -> single rAF style write
+    let cursorRaf: number | null = null;
+    const flushCursor = () => {
+      cursorRaf = null;
+      const { x, y, inside } = cursorPosRef.current;
       if (inside) {
         cursorEl.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
         show();
@@ -157,13 +156,25 @@ export default function ClientEffects() {
         hide();
       }
     };
+    const scheduleCursor = () => {
+      if (cursorRaf) return;
+      cursorRaf = requestAnimationFrame(flushCursor);
+    };
+    const updateCursor = (e: MouseEvent) => {
+      const r = scene.getBoundingClientRect();
+      const x = e.clientX;
+      const y = e.clientY;
+      const inside = x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      cursorPosRef.current = { x, y, inside };
+      scheduleCursor();
+    };
 
     window.addEventListener("mousemove", updateCursor);
     document.addEventListener("pointerleave", hide);
     window.addEventListener("blur", hide);
     document.addEventListener("visibilitychange", hide);
 
-    const links = document.querySelectorAll<HTMLElement>(".link");
+    const links = document.querySelectorAll<HTMLElement>(".nfo-item a");
     const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
     const cbs: Array<() => void> = [];
     links.forEach((el) => {
@@ -197,6 +208,7 @@ export default function ClientEffects() {
       });
     });
     return () => {
+      if (cursorRaf) cancelAnimationFrame(cursorRaf);
       window.removeEventListener("mousemove", updateCursor);
       document.removeEventListener("pointerleave", hide);
       window.removeEventListener("blur", hide);
@@ -211,7 +223,7 @@ export default function ClientEffects() {
       <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" data-section={Sections.BACKGROUND_CANVAS} />
       <div id="fogOverlay" className="bg fog" data-section={Sections.FOG_OVERLAY} />
       {/* Custom CRT cursor overlay (ring) */}
-      <div ref={cursorElRef} className="crt-cursor" aria-hidden />
+      <div ref={cursorElRef} className="crt-cursor" aria-hidden data-ignore-snapshot />
     </>
   );
 }
