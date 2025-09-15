@@ -43,6 +43,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   // Live micro-effects controls
   const aliveRef = useRef<number>(1.0); // default micro-effects strength
   const mainsHzRef = useRef<number>(5); // default mains (Hz)
+  const interactingRef = useRef<boolean>(false);
   // Performance gating
   const gateRef = useRef<boolean>(false);
   const fpsEMARef = useRef<number>(60);
@@ -87,6 +88,15 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       }
     };
     window.addEventListener("crt-alive", onAlive);
+    const onInteract = (ev: Event) => {
+      const e = ev as CustomEvent<{ active?: boolean }>;
+      const was = interactingRef.current;
+      interactingRef.current = !!e.detail?.active;
+      if (was && !interactingRef.current) {
+        try { scheduleCapture(); } catch {}
+      }
+    };
+    window.addEventListener("crt-interact", onInteract as EventListener);
 
     // The lens covers the parent `.screen` container
     const container = canvas.parentElement as HTMLElement | null;
@@ -242,8 +252,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         if (!reduceRef.current) rafRef.current = requestAnimationFrame(render);
       };
 
-      // Capture
-      let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { canvas.style.opacity = "0"; const dataUrl = await htmlToImage.toPng(container, { pixelRatio: dprRef.current, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; if (node.hasAttribute("data-ignore-snapshot")) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); canvas.style.opacity = ""; render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; if (canvas.style.opacity === "0") { canvas.style.opacity = ""; } } };
+      // Capture (HQ): snapshot container into base texture
+      let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { const px = interactingRef.current ? Math.min(1.25, Math.max(1, window.devicePixelRatio||1)) : dprRef.current; const dataUrl = await htmlToImage.toPng(container, { pixelRatio: px, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; if (node.hasAttribute("data-ignore-snapshot")) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; } };
       const scheduleCapture = () => { if (pendingRef.current) return; const since = performance.now() - lastCaptureAtRef.current; const delay = Math.max(200, 200 - since); pendingRef.current = window.setTimeout(() => { pendingRef.current=null; capture(); }, delay); };
 
       const ro = new ResizeObserver(() => { const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
@@ -532,16 +542,15 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       }
     };
 
-    // Snapshot underlying container into texture
+    // Snapshot underlying container into texture (LQ fallback)
     let capturing = false;
     const capture = async () => {
       if (capturing) return;
       capturing = true;
-      // Do not toggle visibility; we already exclude the warp canvas in html-to-image filter
       try {
-        canvas.style.opacity = "0";
+        const px = interactingRef.current ? Math.min(1.25, Math.max(1, window.devicePixelRatio||1)) : dprRef.current;
         const dataUrl = await htmlToImage.toPng(container, {
-          pixelRatio: dprRef.current,
+          pixelRatio: px,
           cacheBust: true,
           filter: (node) => {
             if (!(node instanceof Element)) return true;
@@ -554,7 +563,6 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         img.onload = () => {
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-          canvas.style.opacity = "";
           render();
           // Announce the very first successful WebGL draw so we can reveal the UI
           if (!announcedReadyRef.current) {
@@ -571,7 +579,6 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       } finally {
         lastCaptureAtRef.current = performance.now();
         capturing = false;
-        if (canvas.style.opacity === "0") canvas.style.opacity = "";
       }
     };
 
@@ -623,6 +630,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
     return () => {
       window.removeEventListener("crt-alive", onAlive);
+      window.removeEventListener("crt-interact", onInteract as EventListener);
       ro.disconnect();
       mo.disconnect();
       window.removeEventListener("resize", scheduleCapture);

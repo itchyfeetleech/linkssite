@@ -408,10 +408,6 @@ canvas.lens-warp {
   transition: opacity 80ms ease;
 }
 
-/* Hide lens during drag/resize to avoid artifacts on slower GPUs */
-.window.is-dragging .lens-warp,
-.window.is-resizing .lens-warp { opacity: 0; }
-
 pre.nfo {
   margin: 0 0 18px 0;
   color: var(--fg);

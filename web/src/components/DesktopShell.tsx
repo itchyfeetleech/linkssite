@@ -10,8 +10,6 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import Image from "next/image";
-import dynamic from "next/dynamic";
-const LensWarp = dynamic(() => import("@/components/LensWarp"), { ssr: false });
 import NfoBanner from "@/components/NfoBanner";
 import { profileLinks, gameLinks, otherLinks } from "@/data/links";
 import { LinkGroups, Sections } from "@/lib/sections";
@@ -201,6 +199,7 @@ export default function DesktopShell() {
         offsetY: event.clientY - position.y,
       };
       setIsDragging(true);
+      try { window.dispatchEvent(new CustomEvent('crt-interact', { detail: { active: true } })); } catch {}
     },
     [isMinimized, position.x, position.y]
   );
@@ -228,6 +227,7 @@ export default function DesktopShell() {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setIsDragging(false);
+    try { window.dispatchEvent(new CustomEvent('crt-interact', { detail: { active: false } })); } catch {}
   }, []);
 
   const handleResizePointerDown = useCallback(
@@ -245,6 +245,7 @@ export default function DesktopShell() {
         startHeight: size.height,
       };
       setIsResizing(true);
+      try { window.dispatchEvent(new CustomEvent('crt-interact', { detail: { active: true } })); } catch {}
     },
     [isMinimized, size.height, size.width]
   );
@@ -281,6 +282,7 @@ export default function DesktopShell() {
         event.currentTarget.releasePointerCapture(event.pointerId);
       }
       setIsResizing(false);
+      try { window.dispatchEvent(new CustomEvent('crt-interact', { detail: { active: false } })); } catch {}
     },
     []
   );
@@ -418,8 +420,7 @@ export default function DesktopShell() {
               </li>
             ))}
           </ul>
-          {/** Mount the LensWarp overlay within the screen container so it only postprocesses terminal content */}
-          <LensWarp />
+          {/** content only; CRT lens overlay applies at scene root */}
         </div>
         <div
           className="resize-handle"
