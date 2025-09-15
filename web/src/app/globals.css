@@ -404,7 +404,13 @@ canvas.lens-warp {
   height: 100%;
   pointer-events: none; /* keep DOM interactive */
   z-index: 5; /* above .screen content & overlays */
+  background: transparent !important;
+  transition: opacity 80ms ease;
 }
+
+/* Hide lens during drag/resize to avoid artifacts on slower GPUs */
+.window.is-dragging .lens-warp,
+.window.is-resizing .lens-warp { opacity: 0; }
 
 pre.nfo {
   margin: 0 0 18px 0;

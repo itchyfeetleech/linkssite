@@ -112,7 +112,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
     // Try HQ (WebGL2) pipeline. If initialized, skip LQ path below.
     const tryInitHQ = () => {
-      const gl2 = canvas.getContext("webgl2", { premultipliedAlpha: true }) as WebGL2RenderingContext | null;
+      const gl2 = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true }) as WebGL2RenderingContext | null;
       if (!gl2) return false;
 
       // Listen for phosphor/halo updates
@@ -264,7 +264,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     }
 
     // Setup GL (LQ fallback)
-    const gl = canvas.getContext("webgl", { premultipliedAlpha: true });
+    const gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true });
     if (!gl) return;
     glRef.current = gl;
 
