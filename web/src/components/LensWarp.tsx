@@ -63,6 +63,19 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     if (!canvas) return;
     reduceRef.current = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
+    // Guard against context loss causing a black full-screen overlay.
+    const onContextLost = (e: Event) => {
+      e.preventDefault?.();
+      // Hide the lens so the raw DOM remains visible
+      (e.currentTarget as HTMLCanvasElement).style.opacity = "0";
+    };
+    const onContextRestored = () => {
+      // Easiest reliable recovery: reload and let the pipeline re-init
+      try { location.reload(); } catch {}
+    };
+    canvas.addEventListener("webglcontextlost", onContextLost as EventListener, { passive: false } as AddEventListenerOptions);
+    canvas.addEventListener("webglcontextrestored", onContextRestored as EventListener);
+
     // Listen for external control of alive/mainsHz
     const onAlive = (ev: Event) => {
       const e = ev as CustomEvent<{ alive?: number; mainsHz?: number }>;
@@ -230,7 +243,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       };
 
       // Capture
-      let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { const dataUrl = await htmlToImage.toPng(container, { pixelRatio: dprRef.current, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; if (node.hasAttribute("data-ignore-snapshot")) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; } };
+      let capturing=false; const capture = async () => { if (capturing) return; capturing=true; try { canvas.style.opacity = "0"; const dataUrl = await htmlToImage.toPng(container, { pixelRatio: dprRef.current, cacheBust: true, filter: (node) => { if (!(node instanceof Element)) return true; if (node === canvas) return false; if (node.hasAttribute("data-ignore-snapshot")) return false; return !node.classList.contains("lens-warp"); } }); const img = new Image(); img.onload = () => { gl2.activeTexture(gl2.TEXTURE0); gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img); canvas.style.opacity = ""; render(); if (!announcedReadyRef.current) { announcedReadyRef.current=true; requestAnimationFrame(() => window.dispatchEvent(new Event("webgl-ready"))); } }; img.src = dataUrl; } catch(e){ console.warn("Lens capture failed", e);} finally { lastCaptureAtRef.current = performance.now(); capturing=false; if (canvas.style.opacity === "0") { canvas.style.opacity = ""; } } };
       const scheduleCapture = () => { if (pendingRef.current) return; const since = performance.now() - lastCaptureAtRef.current; const delay = Math.max(200, 200 - since); pendingRef.current = window.setTimeout(() => { pendingRef.current=null; capture(); }, delay); };
 
       const ro = new ResizeObserver(() => { const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
@@ -526,6 +539,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       capturing = true;
       // Do not toggle visibility; we already exclude the warp canvas in html-to-image filter
       try {
+        canvas.style.opacity = "0";
         const dataUrl = await htmlToImage.toPng(container, {
           pixelRatio: dprRef.current,
           cacheBust: true,
@@ -540,6 +554,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         img.onload = () => {
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+          canvas.style.opacity = "";
           render();
           // Announce the very first successful WebGL draw so we can reveal the UI
           if (!announcedReadyRef.current) {
@@ -556,6 +571,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       } finally {
         lastCaptureAtRef.current = performance.now();
         capturing = false;
+        if (canvas.style.opacity === "0") canvas.style.opacity = "";
       }
     };
 
@@ -614,6 +630,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (gl && texRef.current) gl.deleteTexture(texRef.current);
       if (gl && progRef.current) gl.deleteProgram(progRef.current);
+      canvas.removeEventListener("webglcontextlost", onContextLost as EventListener);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored as EventListener);
     };
   }, [k1, k2, center.x, center.y]);
 
