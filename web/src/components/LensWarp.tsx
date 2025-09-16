@@ -193,7 +193,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       // Textures & FBOs
       const createTex = (mip: boolean) => { const t = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, t); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, mip?gl2.LINEAR_MIPMAP_LINEAR:gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); return t; };
       const phiA = createTex(false), phiB = createTex(false), brightTex = createTex(true);
-      const baseTex = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE);
+      const baseTex = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, baseTex); gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 0); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.CLAMP_TO_EDGE); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.CLAMP_TO_EDGE);
       // Blue-noise (approx) texture
       const blueTex = gl2.createTexture()!; gl2.bindTexture(gl2.TEXTURE_2D, blueTex); { const N=128; const data=new Uint8Array(N*N); for(let y=0;y<N;y++){ for(let x=0;x<N;x++){ const j=((x*73)^(y*199))&255; const r=Math.sin((j+1)*12.9898)*43758.5453; const v=r-Math.floor(r); data[y*N+x]=Math.floor(v*255); } } gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.R8,N,N,0,gl2.RED,gl2.UNSIGNED_BYTE,data);} gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MIN_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_MAG_FILTER, gl2.LINEAR); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_S, gl2.REPEAT); gl2.texParameteri(gl2.TEXTURE_2D, gl2.TEXTURE_WRAP_T, gl2.REPEAT);
       // Micro-surface normal map (tile)
@@ -315,7 +315,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
             });
             if (!blob) throw new Error("toBlob returned null");
             const bmp = await createImageBitmap(blob);
-            gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1);
+            gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 0);
             gl2.activeTexture(gl2.TEXTURE0);
             gl2.bindTexture(gl2.TEXTURE_2D, baseTex);
             gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,bmp);
@@ -339,7 +339,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
             await new Promise<void>((resolve, reject) => {
               const img = new Image();
               img.onload = () => {
-                gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1);
+                gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 0);
                 gl2.activeTexture(gl2.TEXTURE0);
                 gl2.bindTexture(gl2.TEXTURE_2D, baseTex);
                 gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img);
@@ -568,8 +568,8 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     texRef.current = tex;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, tex);
-    // Default: flip snapshot vertically so WebGL sampling matches DOM orientation
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    // Default: keep DOM snapshot orientation as-captured (no implicit flips)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -669,7 +669,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           });
           if (!blob) throw new Error("toBlob returned null");
           const bmp = await createImageBitmap(blob);
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
           try { bmp.close(); } catch {}
@@ -691,7 +691,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           await new Promise<void>((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
-              gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+              gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
               gl.bindTexture(gl.TEXTURE_2D, tex);
               gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
               resolve();
@@ -1002,3 +1002,4 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
   return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot data-section={Sections.LENS_WARP_CANVAS} />;
 }
+
