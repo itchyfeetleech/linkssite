@@ -791,5 +791,214 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     };
   }, [k1, k2, center.x, center.y]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = canvas?.parentElement as HTMLElement | null;
+    if (!canvas || !container) return;
+
+    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+    const applyBarrel = (ux: number, uy: number, aspect: number) => {
+      let px = (ux - center.x) * 2.0;
+      let py = (uy - center.y) * 2.0;
+      px *= aspect;
+      const r2 = px * px + py * py;
+      const gain = 1.0 + k1 * r2 + k2 * r2 * r2;
+      px *= gain;
+      py *= gain;
+      px /= aspect;
+      return {
+        x: center.x + px * 0.5,
+        y: center.y + py * 0.5,
+      };
+    };
+
+    const remapCoordinates = (evt: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const { width, height, left, top } = rect;
+      if (!width || !height) return null;
+
+      let viewX = (evt.clientX - left) / width;
+      let viewY = (evt.clientY - top) / height;
+      if (!Number.isFinite(viewX) || !Number.isFinite(viewY)) return null;
+
+      viewX = clamp01(viewX);
+      viewY = clamp01(viewY);
+
+      const aspect = width / height;
+      const sample = applyBarrel(viewX, 1 - viewY, aspect);
+
+      const domX = clamp01(sample.x);
+      const domYShader = clamp01(sample.y);
+      const domY = 1 - domYShader;
+
+      const clientX = left + domX * width;
+      const clientY = top + domY * height;
+      const deltaX = clientX - evt.clientX;
+      const deltaY = clientY - evt.clientY;
+
+      return {
+        clientX,
+        clientY,
+        screenX: evt.screenX + deltaX,
+        screenY: evt.screenY + deltaY,
+        pageX: clientX + window.scrollX,
+        pageY: clientY + window.scrollY,
+        deltaX,
+        deltaY,
+      };
+    };
+
+    const previousPointerEvents = canvas.style.pointerEvents;
+    canvas.style.pointerEvents = "auto";
+
+    const pickTarget = (clientX: number, clientY: number) => {
+      canvas.style.pointerEvents = "none";
+      let target: Element | null = null;
+      try {
+        target = document.elementFromPoint(clientX, clientY);
+      } finally {
+        canvas.style.pointerEvents = "auto";
+      }
+      return (target as HTMLElement | null) ?? null;
+    };
+
+    const dispatchPointer = (evt: PointerEvent) => {
+      const mapped = remapCoordinates(evt);
+      if (!mapped) return;
+      const target = pickTarget(mapped.clientX, mapped.clientY);
+      if (!target) return;
+
+      const init: PointerEventInit = {
+        bubbles: evt.bubbles,
+        cancelable: evt.cancelable,
+        pointerId: evt.pointerId,
+        pointerType: evt.pointerType,
+        isPrimary: evt.isPrimary,
+        width: evt.width,
+        height: evt.height,
+        pressure: evt.pressure,
+        tangentialPressure: evt.tangentialPressure,
+        tiltX: evt.tiltX,
+        tiltY: evt.tiltY,
+        twist: evt.twist,
+        detail: evt.detail,
+        button: evt.button,
+        buttons: evt.buttons,
+        ctrlKey: evt.ctrlKey,
+        shiftKey: evt.shiftKey,
+        altKey: evt.altKey,
+        metaKey: evt.metaKey,
+        clientX: mapped.clientX,
+        clientY: mapped.clientY,
+        screenX: mapped.screenX,
+        screenY: mapped.screenY,
+        relatedTarget: null,
+      };
+
+      try {
+        target.dispatchEvent(new PointerEvent(evt.type, init));
+      } catch {
+        const fallbackInit: MouseEventInit = {
+          bubbles: evt.bubbles,
+          cancelable: evt.cancelable,
+          detail: evt.detail,
+          button: evt.button,
+          buttons: evt.buttons,
+          ctrlKey: evt.ctrlKey,
+          shiftKey: evt.shiftKey,
+          altKey: evt.altKey,
+          metaKey: evt.metaKey,
+          clientX: mapped.clientX,
+          clientY: mapped.clientY,
+          screenX: mapped.screenX,
+          screenY: mapped.screenY,
+        };
+        target.dispatchEvent(new MouseEvent(evt.type, fallbackInit));
+      }
+
+      evt.preventDefault();
+      evt.stopImmediatePropagation();
+    };
+
+    const dispatchMouse = (evt: MouseEvent) => {
+      const mapped = remapCoordinates(evt);
+      if (!mapped) return;
+      const target = pickTarget(mapped.clientX, mapped.clientY);
+      if (!target) return;
+
+      const init: MouseEventInit = {
+        bubbles: evt.bubbles,
+        cancelable: evt.cancelable,
+        detail: evt.detail,
+        button: evt.button,
+        buttons: evt.buttons,
+        ctrlKey: evt.ctrlKey,
+        shiftKey: evt.shiftKey,
+        altKey: evt.altKey,
+        metaKey: evt.metaKey,
+        clientX: mapped.clientX,
+        clientY: mapped.clientY,
+        screenX: mapped.screenX,
+        screenY: mapped.screenY,
+      };
+      target.dispatchEvent(new MouseEvent(evt.type, init));
+
+      evt.preventDefault();
+      evt.stopImmediatePropagation();
+    };
+
+    const dispatchWheel = (evt: WheelEvent) => {
+      const mapped = remapCoordinates(evt);
+      if (!mapped) return;
+      const target = pickTarget(mapped.clientX, mapped.clientY);
+      if (!target) return;
+
+      const init: WheelEventInit = {
+        bubbles: evt.bubbles,
+        cancelable: evt.cancelable,
+        deltaX: evt.deltaX,
+        deltaY: evt.deltaY,
+        deltaZ: evt.deltaZ,
+        deltaMode: evt.deltaMode,
+        ctrlKey: evt.ctrlKey,
+        shiftKey: evt.shiftKey,
+        altKey: evt.altKey,
+        metaKey: evt.metaKey,
+        clientX: mapped.clientX,
+        clientY: mapped.clientY,
+        screenX: mapped.screenX,
+        screenY: mapped.screenY,
+      };
+      target.dispatchEvent(new WheelEvent("wheel", init));
+
+      evt.preventDefault();
+      evt.stopImmediatePropagation();
+    };
+
+    const pointerEvents = [
+      "pointerdown",
+      "pointermove",
+      "pointerup",
+      "pointercancel",
+      "pointerover",
+      "pointerout",
+      "pointerenter",
+      "pointerleave",
+    ] as const;
+    pointerEvents.forEach((type) => canvas.addEventListener(type, dispatchPointer, true));
+
+    const mouseEvents = ["click", "dblclick", "auxclick", "contextmenu"] as const;
+    mouseEvents.forEach((type) => canvas.addEventListener(type, dispatchMouse, true));
+
+    canvas.addEventListener("wheel", dispatchWheel, { capture: true, passive: false });
+
+    return () => {
+      pointerEvents.forEach((type) => canvas.removeEventListener(type, dispatchPointer, true));
+      mouseEvents.forEach((type) => canvas.removeEventListener(type, dispatchMouse, true));
+      canvas.removeEventListener("wheel", dispatchWheel, true);
+      canvas.style.pointerEvents = previousPointerEvents;
+    };
+  }, [k1, k2, center.x, center.y]);
+
   return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot data-section={Sections.LENS_WARP_CANVAS} />;
 }
