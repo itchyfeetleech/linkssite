@@ -300,20 +300,20 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         try {
           const px = interactingRef.current ? Math.min(1.25, Math.max(1, window.devicePixelRatio||1)) : dprRef.current;
           if (debugRef.current) { try { console.log("[CRT] capture:HQ:start", {px}); } catch {} }
-          const dataUrl = await htmlToImage.toPng(container, {
-            pixelRatio: px,
-            cacheBust: true,
-            filter: (node) => {
-              if (!(node instanceof Element)) return true;
-              if (node === canvas) return false;
-              if (node.hasAttribute("data-ignore-snapshot")) return false;
-              return !node.classList.contains("lens-warp");
-            },
-          });
+          // Prefer toBlob -> ImageBitmap to avoid huge data URLs
           let uploaded = false;
           try {
-            const res = await fetch(dataUrl);
-            const blob = await res.blob();
+            const blob = await htmlToImage.toBlob(container, {
+              pixelRatio: px,
+              cacheBust: true,
+              filter: (node) => {
+                if (!(node instanceof Element)) return true;
+                if (node === canvas) return false;
+                if (node.hasAttribute("data-ignore-snapshot")) return false;
+                return !node.classList.contains("lens-warp");
+              },
+            });
+            if (!blob) throw new Error("toBlob returned null");
             const bmp = await createImageBitmap(blob);
             gl2.activeTexture(gl2.TEXTURE0);
             gl2.bindTexture(gl2.TEXTURE_2D, baseTex);
@@ -321,9 +321,20 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
             try { bmp.close(); } catch {}
             uploaded = true;
           } catch (e) {
-            if (debugRef.current) { try { console.warn("[CRT] ImageBitmap upload failed (HQ), fallback", e); } catch {} }
+            if (debugRef.current) { try { console.warn("[CRT] toBlob/ImageBitmap failed (HQ), falling back", e); } catch {} }
           }
           if (!uploaded) {
+            // Fallback to data URL -> object URL -> Image
+            const dataUrl = await htmlToImage.toPng(container, {
+              pixelRatio: px,
+              cacheBust: true,
+              filter: (node) => {
+                if (!(node instanceof Element)) return true;
+                if (node === canvas) return false;
+                if (node.hasAttribute("data-ignore-snapshot")) return false;
+                return !node.classList.contains("lens-warp");
+              },
+            });
             await new Promise<void>((resolve, reject) => {
               const img = new Image();
               img.onload = () => {
@@ -641,30 +652,39 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       try {
         const px = interactingRef.current ? Math.min(1.25, Math.max(1, window.devicePixelRatio||1)) : dprRef.current;
         if (debugRef.current) { try { console.log("[CRT] capture:LQ:start", {px}); } catch {} }
-        const dataUrl = await htmlToImage.toPng(container, {
-          pixelRatio: px,
-          cacheBust: true,
-          filter: (node) => {
-            if (!(node instanceof Element)) return true;
-            if (node === canvas) return false;
-            if (node.hasAttribute("data-ignore-snapshot")) return false;
-            return !node.classList.contains("lens-warp");
-          },
-        });
-        // Try ImageBitmap first
+        // Try toBlob -> ImageBitmap first
         let uploaded = false;
         try {
-          const res = await fetch(dataUrl);
-          const blob = await res.blob();
+          const blob = await htmlToImage.toBlob(container, {
+            pixelRatio: px,
+            cacheBust: true,
+            filter: (node) => {
+              if (!(node instanceof Element)) return true;
+              if (node === canvas) return false;
+              if (node.hasAttribute("data-ignore-snapshot")) return false;
+              return !node.classList.contains("lens-warp");
+            },
+          });
+          if (!blob) throw new Error("toBlob returned null");
           const bmp = await createImageBitmap(blob);
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
           try { bmp.close(); } catch {}
           uploaded = true;
         } catch (e) {
-          if (debugRef.current) { try { console.warn("[CRT] ImageBitmap upload failed (LQ), falling back", e); } catch {} }
+          if (debugRef.current) { try { console.warn("[CRT] toBlob/ImageBitmap failed (LQ), falling back", e); } catch {} }
         }
         if (!uploaded) {
+          const dataUrl = await htmlToImage.toPng(container, {
+            pixelRatio: px,
+            cacheBust: true,
+            filter: (node) => {
+              if (!(node instanceof Element)) return true;
+              if (node === canvas) return false;
+              if (node.hasAttribute("data-ignore-snapshot")) return false;
+              return !node.classList.contains("lens-warp");
+            },
+          });
           await new Promise<void>((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
