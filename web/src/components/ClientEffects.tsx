@@ -220,8 +220,8 @@ export default function ClientEffects() {
   return (
     <>
       {/* BACKGROUND_CANVAS + FOG_OVERLAY */}
-      <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" data-section={Sections.BACKGROUND_CANVAS} />
-      <div id="fogOverlay" className="bg fog" data-section={Sections.FOG_OVERLAY} />
+      <canvas ref={canvasRef} id="bgCanvas" className="bg webgl" data-section={Sections.BACKGROUND_CANVAS} data-ignore-snapshot />
+      <div id="fogOverlay" className="bg fog" data-section={Sections.FOG_OVERLAY} data-ignore-snapshot />
       {/* Custom CRT cursor overlay (ring) */}
       <div ref={cursorElRef} className="crt-cursor" aria-hidden data-ignore-snapshot />
     </>

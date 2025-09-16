@@ -225,7 +225,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       const resizeTex = (t: WebGLTexture, w: number, h: number) => { gl2.bindTexture(gl2.TEXTURE_2D, t); const ifmt = use16F ? gl2.RGBA16F : gl2.RGBA8; const type = use16F ? gl2.HALF_FLOAT : gl2.UNSIGNED_BYTE; gl2.texImage2D(gl2.TEXTURE_2D, 0, ifmt, w, h, 0, gl2.RGBA, type, null); };
       const resizeAll = () => {
         const rect = container.getBoundingClientRect();
-        const dpr = Math.min(Math.max(window.devicePixelRatio||1,2),2.5);
+        const dpr = Math.min(Math.max(window.devicePixelRatio||1,2),2.0);
         dprRef.current=dpr;
         const w=Math.max(1,Math.floor(rect.width));
         const h=Math.max(1,Math.floor(rect.height));
@@ -315,6 +315,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
             });
             if (!blob) throw new Error("toBlob returned null");
             const bmp = await createImageBitmap(blob);
+            gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1);
             gl2.activeTexture(gl2.TEXTURE0);
             gl2.bindTexture(gl2.TEXTURE_2D, baseTex);
             gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,bmp);
@@ -338,6 +339,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
             await new Promise<void>((resolve, reject) => {
               const img = new Image();
               img.onload = () => {
+                gl2.pixelStorei(gl2.UNPACK_FLIP_Y_WEBGL, 1);
                 gl2.activeTexture(gl2.TEXTURE0);
                 gl2.bindTexture(gl2.TEXTURE_2D, baseTex);
                 gl2.texImage2D(gl2.TEXTURE_2D,0,gl2.RGBA,gl2.RGBA,gl2.UNSIGNED_BYTE,img);
@@ -357,7 +359,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       };
       const scheduleCapture = () => { if (pendingRef.current) return; const since = performance.now() - lastCaptureAtRef.current; const delay = Math.max(200, 200 - since); pendingRef.current = window.setTimeout(() => { pendingRef.current=null; capture(); }, delay); };
 
-      const ro = new ResizeObserver(() => { roCountRef.current++; const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.5); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
+      const ro = new ResizeObserver(() => { roCountRef.current++; const dpr=Math.min(Math.max(window.devicePixelRatio||1,2),2.0); dprRef.current=dpr; resizeAll(); scheduleCapture(); }); ro.observe(container);
       window.addEventListener("resize", scheduleCapture); window.addEventListener("ascii-ready", capture);
 
       // Context loss cleanup
@@ -667,6 +669,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           });
           if (!blob) throw new Error("toBlob returned null");
           const bmp = await createImageBitmap(blob);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
           gl.bindTexture(gl.TEXTURE_2D, tex);
           gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
           try { bmp.close(); } catch {}
@@ -688,6 +691,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           await new Promise<void>((resolve, reject) => {
             const img = new Image();
             img.onload = () => {
+              gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
               gl.bindTexture(gl.TEXTURE_2D, tex);
               gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
               resolve();
@@ -727,7 +731,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
     const resize = () => {
       const rect = container.getBoundingClientRect();
-      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2), 2.5);
+      const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 2), 2.0);
       dprRef.current = dpr;
       const w = Math.max(1, Math.floor(rect.width));
       const h = Math.max(1, Math.floor(rect.height));
