@@ -39,6 +39,7 @@ type CRTApi = {
   phosphor: (opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) => CRTState;
   mode: (m: 'HQ'|'LQ') => void;
   beam: (opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) => CRTState;
+  debug: (on: boolean, persist?: boolean) => void;
 };
 
 declare global {
@@ -65,6 +66,7 @@ export default function CRTDevConsole() {
           `window.CRT.phosphor({ rMs,gMs,bMs,halo }) -> set decay (s) and halo gain\n`
           + `window.CRT.mode('HQ'|'LQ')           -> force mode and reload\n`
           + `window.CRT.beam({ on, beamPx, modDepth, interlace }) -> beam controls (HQ only)\n`
+          + `window.CRT.debug(true|false[, persist]) -> toggle diagnostic logging\n`
         );
       },
       get(): CRTState {
@@ -86,6 +88,7 @@ export default function CRTDevConsole() {
       phosphor(opts: { rMs?: number; gMs?: number; bMs?: number; halo?: number }) { setPhosphor(opts); return api.get(); },
       mode(m: 'HQ'|'LQ') { try { localStorage.setItem('crt-mode', m); } catch {} location.reload(); },
       beam(opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) { window.dispatchEvent(new CustomEvent('crt-beam', { detail: opts })); return api.get(); },
+      debug(on: boolean, persist?: boolean) { window.dispatchEvent(new CustomEvent('crt-debug', { detail: { debug: !!on, persist: !!persist } })); },
     };
 
     try {
