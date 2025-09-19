@@ -1,8 +1,101 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Sections } from "@/lib/sections";
 import * as htmlToImage from "html-to-image";
+
+const DEFAULT_K1 = -0.006;
+const DEFAULT_K2 = 0.0;
+const SLIDER_K1 = -0.012;
+const SLIDER_K2 = 0.004;
+const MAX_ABS_K1 = 0.02;
+const MAX_ABS_K2 = 0.005;
+const WARP_EVENT = "crt-warp";
+
+type Vec2 = { x: number; y: number };
+
+type WarpCoefficients = { k1: number; k2: number };
+
+type WarpEventDetail = {
+  slider?: number;
+  k1?: number;
+  k2?: number;
+  enabled?: boolean;
+  showGrid?: boolean;
+};
+
+type WarpState = {
+  current: WarpCoefficients;
+  desired: WarpCoefficients;
+  slider: number | null;
+  enabled: boolean;
+  clampLogged: boolean;
+  showGrid: boolean;
+};
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+const sanitizeWarpCoefficients = (k1: number, k2: number) => {
+  const safeK1 = Number.isFinite(k1) ? k1 : 0;
+  const safeK2 = Number.isFinite(k2) ? k2 : 0;
+  if (Math.abs(safeK1) > MAX_ABS_K1 || Math.abs(safeK2) > MAX_ABS_K2) {
+    return { values: { k1: 0, k2: 0 }, clamped: true } as const;
+  }
+  return { values: { k1: safeK1, k2: safeK2 }, clamped: false } as const;
+};
+
+const sliderToWarp = (slider: number): WarpCoefficients => ({
+  k1: SLIDER_K1 * slider,
+  k2: SLIDER_K2 * slider,
+});
+
+const safeAspectPx = (width: number, height: number) =>
+  height > 0 ? width / height : 1;
+
+const undistortPoint = (p: Vec2, coeffs: WarpCoefficients): Vec2 => {
+  let ux = p.x;
+  let uy = p.y;
+  for (let i = 0; i < 3; i += 1) {
+    const r2 = ux * ux + uy * uy;
+    const f = Math.max(1e-3, 1 + coeffs.k1 * r2 + coeffs.k2 * r2 * r2);
+    ux = p.x / f;
+    uy = p.y / f;
+  }
+  return { x: ux, y: uy };
+};
+
+const lensSample = (
+  uv: Vec2,
+  center: Vec2,
+  aspect: number,
+  coeffs: WarpCoefficients
+): Vec2 => {
+  const px = (uv.x - center.x) * 2.0;
+  const py = (uv.y - center.y) * 2.0;
+  const scaled: Vec2 = { x: px * aspect, y: py };
+  const undistorted = undistortPoint(scaled, coeffs);
+  return {
+    x: center.x + (undistorted.x / aspect) * 0.5,
+    y: center.y + undistorted.y * 0.5,
+  };
+};
+
+const dispatchWarpEvent = (detail: WarpEventDetail) => {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(WARP_EVENT, { detail }));
+};
+
+export const setCRTWarpSlider = (slider: number) => {
+  dispatchWarpEvent({ slider });
+};
+
+export const setCRTWarpEnabled = (enabled: boolean) => {
+  dispatchWarpEvent({ enabled });
+};
+
+export const setCRTWarpGrid = (show: boolean) => {
+  dispatchWarpEvent({ showGrid: show });
+};
 
 // External control: update CRT micro-effects strength and mains Hz
 export function setCRTAlive(alive: number, mainsHz?: number) {
@@ -29,7 +122,7 @@ type AnisoExt = {
   MAX_TEXTURE_MAX_ANISOTROPY_EXT: number;
 };
 
-export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y: 0.5 } }: Props) {
+export default function LensWarp({ k1 = DEFAULT_K1, k2 = DEFAULT_K2, center = { x: 0.5, y: 0.5 } }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const texRef = useRef<WebGLTexture | null>(null);
   const progRef = useRef<WebGLProgram | null>(null);
@@ -61,6 +154,142 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
   const beamPxRef = useRef<number>(6.0);
   const beamModDepthRef = useRef<number>(1.0);
   const beamInterlaceRef = useRef<boolean>(false);
+  const initialWarp = sanitizeWarpCoefficients(k1, k2);
+  const warpStateRef = useRef<WarpState>({
+    current: { ...initialWarp.values },
+    desired: { ...initialWarp.values },
+    slider: null,
+    enabled: !(initialWarp.values.k1 === 0 && initialWarp.values.k2 === 0),
+    clampLogged: initialWarp.clamped,
+    showGrid: false,
+  });
+  const showGridExplicitRef = useRef<boolean | null>(null);
+  const lastDiagAtRef = useRef<number>(0);
+  const pointerDispatchingRef = useRef<Set<number>>(new Set());
+  const mouseDispatchingRef = useRef<boolean>(false);
+  const wheelDispatchingRef = useRef<boolean>(false);
+  const centerRef = useRef(center);
+  centerRef.current = center;
+
+  const updateDesiredWarp = useCallback(
+    (
+      nextK1: number,
+      nextK2: number,
+      opts?: { allowClampLog?: boolean }
+    ) => {
+      const sanitized = sanitizeWarpCoefficients(nextK1, nextK2);
+      warpStateRef.current.desired = { ...sanitized.values };
+      if (warpStateRef.current.enabled) {
+        warpStateRef.current.current = { ...sanitized.values };
+      }
+      if (sanitized.clamped) {
+        if (opts?.allowClampLog !== false && !warpStateRef.current.clampLogged) {
+          try {
+            console.warn("clamped", { k1: nextK1, k2: nextK2 });
+          } catch {}
+          warpStateRef.current.clampLogged = true;
+        }
+      } else {
+        warpStateRef.current.clampLogged = false;
+      }
+    },
+    [warpStateRef]
+  );
+
+  const setWarpEnabled = useCallback(
+    (enabled: boolean) => {
+      if (warpStateRef.current.enabled === enabled) return;
+      warpStateRef.current.enabled = enabled;
+      warpStateRef.current.current = enabled
+        ? { ...warpStateRef.current.desired }
+        : { k1: 0, k2: 0 };
+    },
+    [warpStateRef]
+  );
+
+  const applyWarpSlider = useCallback(
+    (slider: number) => {
+      const clampedSlider = clamp01(slider);
+      warpStateRef.current.slider = clampedSlider;
+      const coeffs = sliderToWarp(clampedSlider);
+      updateDesiredWarp(coeffs.k1, coeffs.k2, { allowClampLog: true });
+    },
+    [updateDesiredWarp, warpStateRef]
+  );
+
+  const maybeLogWarpDiagnostics = (width: number, height: number) => {
+    if (!debugRef.current) return;
+    const now = performance.now();
+    if (now - lastDiagAtRef.current < 1000) return;
+    lastDiagAtRef.current = now;
+    const aspect = safeAspectPx(width, height);
+    const warp = warpStateRef.current.enabled
+      ? warpStateRef.current.current
+      : ({ k1: 0, k2: 0 } as WarpCoefficients);
+    const c = centerRef.current;
+    const pts = [0.0, 0.5, 1.0];
+    let minX = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+    for (const py of pts) {
+      for (const px of pts) {
+        const sample = lensSample({ x: px, y: py }, c, aspect, warp);
+        if (sample.x < minX) minX = sample.x;
+        if (sample.x > maxX) maxX = sample.x;
+        if (sample.y < minY) minY = sample.y;
+        if (sample.y > maxY) maxY = sample.y;
+      }
+    }
+    const rounded = {
+      minX: Number(minX.toFixed(4)),
+      maxX: Number(maxX.toFixed(4)),
+      minY: Number(minY.toFixed(4)),
+      maxY: Number(maxY.toFixed(4)),
+    };
+    const minBound = -0.02;
+    const maxBound = 1.02;
+    const within =
+      rounded.minX >= minBound &&
+      rounded.maxX <= maxBound &&
+      rounded.minY >= minBound &&
+      rounded.maxY <= maxBound;
+    try {
+      console.log("[CRT] warp uvSample diag", { ...rounded, within });
+      if (!within) {
+        console.warn("[CRT] warp uvSample out of range", {
+          ...rounded,
+          minBound,
+          maxBound,
+        });
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    const onWarp = (ev: Event) => {
+      const detail = (ev as CustomEvent<WarpEventDetail>).detail;
+      if (!detail) return;
+      if (typeof detail.slider === "number") {
+        applyWarpSlider(detail.slider);
+      }
+      if (typeof detail.k1 === "number" || typeof detail.k2 === "number") {
+        const nextK1 = typeof detail.k1 === "number" ? detail.k1 : warpStateRef.current.desired.k1;
+        const nextK2 = typeof detail.k2 === "number" ? detail.k2 : warpStateRef.current.desired.k2;
+        warpStateRef.current.slider = null;
+        updateDesiredWarp(nextK1, nextK2, { allowClampLog: true });
+      }
+      if (typeof detail.showGrid === "boolean") {
+        showGridExplicitRef.current = detail.showGrid;
+        warpStateRef.current.showGrid = detail.showGrid;
+      }
+      if (typeof detail.enabled === "boolean") {
+        setWarpEnabled(detail.enabled);
+      }
+    };
+    window.addEventListener(WARP_EVENT, onWarp as EventListener);
+    return () => window.removeEventListener(WARP_EVENT, onWarp as EventListener);
+  }, [applyWarpSlider, setWarpEnabled, updateDesiredWarp]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,6 +325,9 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       const dbg = url.searchParams.get("debug");
       const ls = localStorage.getItem("crt-debug");
       debugRef.current = (dbg === "1" || dbg?.toLowerCase() === "true" || ls === "1");
+      if (showGridExplicitRef.current === null) {
+        warpStateRef.current.showGrid = debugRef.current;
+      }
     } catch {}
     const onDebug = (ev: Event) => {
       const e = ev as CustomEvent<{ debug?: boolean; persist?: boolean }>;
@@ -103,6 +335,9 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         debugRef.current = e.detail.debug;
         if (e.detail.persist) {
           try { localStorage.setItem("crt-debug", debugRef.current ? "1" : "0"); } catch {}
+        }
+        if (showGridExplicitRef.current === null) {
+          warpStateRef.current.showGrid = debugRef.current;
         }
       }
     };
@@ -174,10 +409,215 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       gl2.bindBuffer(gl2.ARRAY_BUFFER, vbo);
       gl2.bufferData(gl2.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1,  -1,1, 1,-1, 1,1]), gl2.STATIC_DRAW);
 
-      const vsrc = `#version 300 es\nprecision highp float; layout(location=0) in vec2 position; out vec2 vUv; void main(){ vUv=(position+1.0)*0.5; gl_Position=vec4(position,0.0,1.0);} `;
-      const fs1 = `#version 300 es\nprecision highp float; layout(location=0) out vec4 oPhi; layout(location=1) out vec4 oBright; in vec2 vUv;\nuniform sampler2D u_tex; uniform sampler2D u_prevPhi; uniform sampler2D u_beamMask;\nuniform vec2 u_res; uniform vec2 u_center; uniform float u_k1; uniform float u_k2; uniform float u_time; uniform float u_dt; uniform float u_alive; uniform float u_mainsHz; uniform vec3 u_decayF;\nuniform float u_beamOn; uniform float u_beamPx; uniform float u_modDepth; uniform float u_interlace;\nfloat hash1(float x){ return fract(sin(x*127.1)*43758.5453123); }\nvec2 barrel(vec2 uv, float k1, float k2){ vec2 p=(uv-u_center)*2.0; float aspect=u_res.x/u_res.y; p.x*=aspect; float r2=dot(p,p); float f=1.0 + k1*r2 + k2*r2*r2; p*=f; p.x/=aspect; return u_center + p*0.5; }\nvoid main(){ float phase=6.2831853*u_mainsHz*u_time; float line=float(int(gl_FragCoord.y)); float jitter=(0.25/u_res.x)*sin(phase+line*0.015)*u_alive; float drift=sin(phase*0.07+line*0.011)*(0.15/u_res.x)*u_alive; float t2=floor(u_time*2.0); float n=hash1(line+t2*31.7); drift+=(n-0.5)*(0.05/u_res.x)*u_alive; float dX=clamp(jitter+drift,-0.4/u_res.x,0.4/u_res.x); vec2 uvR=barrel(vUv+vec2( 0.0002,0.0),u_k1,u_k2); vec2 uvG=barrel(vUv,u_k1,u_k2); vec2 uvB=barrel(vUv+vec2(-0.0002,0.0),u_k1,u_k2); uvR.x+=dX; uvG.x+=dX; uvB.x+=dX; uvR=clamp(uvR,vec2(0.0),vec2(1.0)); uvG=clamp(uvG,vec2(0.0),vec2(1.0)); uvB=clamp(uvB,vec2(0.0),vec2(1.0)); vec3 src; src.r=texture(u_tex,uvR).r; src.g=texture(u_tex,uvG).g; src.b=texture(u_tex,uvB).b; vec3 baseLin=pow(max(src,vec3(0.0)), vec3(2.2));\n  // Dynamic beam and scanline mask in linear space\n  float px = uvG.x * u_res.x; float py = uvG.y * u_res.y;\n  float sweep = fract(u_time * (u_mainsHz * 0.05)); float py0 = sweep * u_res.y + (u_interlace>0.5 ? 0.5 : 0.0);\n  float s = fract(px / 3.0); float t = clamp(0.5 + (py - py0) / max(1.0, 6.0*u_beamPx), 0.0, 1.0);\n  vec3 beamRGB = texture(u_beamMask, vec2(s, t)).rgb;\n  float beamW = clamp(u_beamOn * u_modDepth * max(max(beamRGB.r, beamRGB.g), beamRGB.b), 0.0, 1.0);\n  baseLin *= (1.0 + u_beamOn * u_modDepth * beamRGB);\n  float sigma = max(1.0, 3.0 * u_beamPx);\n  float dy = (py - py0);\n  float beamLine = exp(-0.5 * (dy*dy) / (sigma*sigma));\n  vec3 beamAdd = beamRGB * beamLine * (0.12 * u_alive) * beamW;\n  // vertical retrace highlight (~3% additive, ~4px wide) near left edge\n  float dx = abs(px - 2.0); float retrace = 0.03 * exp(-0.5 * (dx*dx) / (2.0*2.0));\n  baseLin += retrace * u_beamOn;\n  // Beam persistence (slight) so background gets afterglow
-  vec3 beamPersist = beamRGB * beamLine * (0.015 * u_alive) * beamW;\n  vec3 prev=texture(u_prevPhi, vUv).rgb; vec3 decayVec = u_decayF * (1.0 - 0.35 * beamW); vec3 newPhi=max(baseLin + beamPersist, mix(vec3(0.0), prev*decayVec, u_alive)); vec3 bright=max(newPhi-vec3(0.6), vec3(0.0)); bright += beamAdd; oPhi=vec4(newPhi,1.0); oBright=vec4(bright,1.0);} `;
-      const fs2 = `#version 300 es\nprecision highp float; out vec4 frag; in vec2 vUv;\nuniform sampler2D u_phi; uniform sampler2D u_bright; uniform sampler2D u_blue; uniform sampler2D u_normal; uniform sampler2D u_dirt;\nuniform vec2 u_res; uniform float u_alive; uniform float u_halo; uniform float u_time; uniform vec2 u_center; uniform float u_k1; uniform float u_k2;\nvec3 bloom(vec2 uv){ vec2 px=1.0/u_res; vec3 s=vec3(0.0); for(int i=0;i<8;i++){ float a=6.2831853*float(i)/8.0; vec2 d=vec2(cos(a),sin(a)); s+=textureLod(u_bright, uv+d*px*1.5,1.0).rgb*0.20; s+=textureLod(u_bright, uv+d*px*2.5,2.0).rgb*0.12; s+=textureLod(u_bright, uv+d*px*4.0,3.0).rgb*0.08; } return s; }\nvec2 barrel(vec2 uv, float k1, float k2){ vec2 p=(uv-u_center)*2.0; float aspect=u_res.x/u_res.y; p.x*=aspect; float r2=dot(p,p); float f=1.0 + k1*r2 + k2*r2*r2; p*=f; p.x/=aspect; return u_center + p*0.5; }\nvoid main(){ vec3 phi=texture(u_phi,vUv).rgb; vec2 uv=vUv; vec2 uvD = barrel(uv, u_k1, u_k2);\n  float dirt = texture(u_dirt, uvD*1.0).r; vec3 bloomAll=bloom(uv); bloomAll *= mix(1.0, dirt*1.6, 0.6*u_alive);\n  vec3 haloText=clamp(bloomAll*(0.7*u_alive)*u_halo, vec3(0.0), 0.06*max(phi,vec3(0.0))*u_alive);\n  float luma = dot(phi, vec3(0.2126,0.7152,0.0722)); float dark = smoothstep(0.35, 0.0, luma); vec3 beamGlow=min(bloomAll*(mix(0.18,0.45,dark)*u_alive), vec3(mix(0.05,0.12,dark)));\n  vec3 colLin=phi+haloText+beamGlow;\n  vec3 nrm = texture(u_normal, uvD*1.0).xyz * 2.0 - 1.0; nrm = normalize(nrm*vec3(0.6,0.6,1.0)); vec3 L = normalize(vec3(0.25,0.6,1.0)); vec3 V = vec3(0.0,0.0,1.0); vec3 H = normalize(L+V); float spec = pow(max(dot(nrm,H),0.0), 64.0); float specW = smoothstep(0.2, 0.7, luma); colLin += spec * (0.05*u_alive) * specW;\n  float tri=fract((uvD.x*u_res.x)/3.0); vec3 mask=normalize(vec3(smoothstep(0.0,0.33,tri), smoothstep(0.33,0.66,tri), smoothstep(0.66,1.0,tri))+1e-3); colLin*=mix(vec3(1.0), mask*3.0, 0.03*u_alive);\n  float bn = texture(u_blue, uvD*8.0 + vec2(0.017*u_time, -0.013*u_time)).r; colLin *= (1.0 + (bn-0.5)*(0.015*u_alive));\n  vec3 srgb=pow(max(colLin,vec3(0.0)), vec3(1.0/2.2)); float d=texture(u_blue, uvD*6.0 + vec2(0.007*u_time, 0.011*u_time)).r; srgb += (d-0.5)*(0.7/255.0);\n  frag=vec4(clamp(srgb,0.0,1.0),1.0);} `;
+      const vsrc = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 position;
+out vec2 vUv;
+void main(){
+  vUv = (position + 1.0) * 0.5;
+  gl_Position = vec4(position, 0.0, 1.0);
+}`;
+      const fs1 = `#version 300 es
+precision highp float;
+layout(location=0) out vec4 oPhi;
+layout(location=1) out vec4 oBright;
+in vec2 vUv;
+uniform sampler2D u_tex;
+uniform sampler2D u_prevPhi;
+uniform sampler2D u_beamMask;
+uniform vec2 u_res;
+uniform vec2 u_center;
+uniform float u_k1;
+uniform float u_k2;
+uniform float u_time;
+uniform float u_dt;
+uniform float u_alive;
+uniform float u_mainsHz;
+uniform vec3 u_decayF;
+uniform float u_beamOn;
+uniform float u_beamPx;
+uniform float u_modDepth;
+uniform float u_interlace;
+
+float hash1(float x){ return fract(sin(x*127.1)*43758.5453123); }
+float safeAspect(vec2 res){ return res.y > 0.0 ? res.x / res.y : 1.0; }
+vec2 undistort(vec2 p, float k1, float k2){
+  vec2 u = p;
+  for(int i=0;i<3;i++){
+    float r2 = dot(u,u);
+    float f = max(1.0 + k1*r2 + k2*r2*r2, 1e-3);
+    u = p / f;
+  }
+  return u;
+}
+vec2 lensSample(vec2 uv, vec2 center, vec2 res, float k1, float k2){
+  float aspect = safeAspect(res);
+  vec2 p = (uv - center) * 2.0;
+  p.x *= aspect;
+  vec2 u = undistort(p, k1, k2);
+  u.x /= aspect;
+  return center + u * 0.5;
+}
+
+void main(){
+  float phase = 6.2831853 * u_mainsHz * u_time;
+  float line = float(int(gl_FragCoord.y));
+  float jitter = (0.25 / u_res.x) * sin(phase + line * 0.015) * u_alive;
+  float drift = sin(phase * 0.07 + line * 0.011) * (0.15 / u_res.x) * u_alive;
+  float t2 = floor(u_time * 2.0);
+  float n = hash1(line + t2 * 31.7);
+  drift += (n - 0.5) * (0.05 / u_res.x) * u_alive;
+  float dX = clamp(jitter + drift, -0.4 / u_res.x, 0.4 / u_res.x);
+
+  vec2 uvBase = vUv;
+  vec2 uvR = lensSample(uvBase + vec2( 0.0002, 0.0), u_center, u_res, u_k1, u_k2);
+  vec2 uvG = lensSample(uvBase,                 u_center, u_res, u_k1, u_k2);
+  vec2 uvB = lensSample(uvBase + vec2(-0.0002, 0.0), u_center, u_res, u_k1, u_k2);
+  uvR.x += dX;
+  uvG.x += dX;
+  uvB.x += dX;
+
+  bool inR = all(greaterThanEqual(uvR, vec2(0.0))) && all(lessThanEqual(uvR, vec2(1.0)));
+  bool inG = all(greaterThanEqual(uvG, vec2(0.0))) && all(lessThanEqual(uvG, vec2(1.0)));
+  bool inB = all(greaterThanEqual(uvB, vec2(0.0))) && all(lessThanEqual(uvB, vec2(1.0)));
+
+  if (!inG) {
+    oPhi = vec4(0.0);
+    oBright = vec4(0.0);
+    return;
+  }
+
+  vec3 src = vec3(0.0);
+  if (inR) src.r = texture(u_tex, uvR).r;
+  if (inG) src.g = texture(u_tex, uvG).g;
+  if (inB) src.b = texture(u_tex, uvB).b;
+  vec3 baseLin = pow(max(src, vec3(0.0)), vec3(2.2));
+
+  float px = uvG.x * u_res.x;
+  float py = uvG.y * u_res.y;
+  float sweep = fract(u_time * (u_mainsHz * 0.05));
+  float py0 = sweep * u_res.y + (u_interlace > 0.5 ? 0.5 : 0.0);
+  float s = fract(px / 3.0);
+  float t = clamp(0.5 + (py - py0) / max(1.0, 6.0 * u_beamPx), 0.0, 1.0);
+  vec3 beamRGB = texture(u_beamMask, vec2(s, t)).rgb;
+  float beamW = clamp(u_beamOn * u_modDepth * max(max(beamRGB.r, beamRGB.g), beamRGB.b), 0.0, 1.0);
+  baseLin *= (1.0 + u_beamOn * u_modDepth * beamRGB);
+  float sigma = max(1.0, 3.0 * u_beamPx);
+  float dy = py - py0;
+  float beamLine = exp(-0.5 * (dy*dy) / (sigma*sigma));
+  vec3 beamAdd = beamRGB * beamLine * (0.12 * u_alive) * beamW;
+  float dx = abs(px - 2.0);
+  float retrace = 0.03 * exp(-0.5 * (dx*dx) / (2.0*2.0));
+  baseLin += retrace * u_beamOn;
+  vec3 beamPersist = beamRGB * beamLine * (0.015 * u_alive) * beamW;
+  vec3 prev = texture(u_prevPhi, vUv).rgb;
+  vec3 decayVec = u_decayF * (1.0 - 0.35 * beamW);
+  vec3 newPhi = max(baseLin + beamPersist, mix(vec3(0.0), prev * decayVec, u_alive));
+  vec3 bright = max(newPhi - vec3(0.6), vec3(0.0));
+  bright += beamAdd;
+  oPhi = vec4(newPhi, 1.0);
+  oBright = vec4(bright, 1.0);
+}`;
+      const fs2 = `#version 300 es
+precision highp float;
+out vec4 frag;
+in vec2 vUv;
+uniform sampler2D u_phi;
+uniform sampler2D u_bright;
+uniform sampler2D u_blue;
+uniform sampler2D u_normal;
+uniform sampler2D u_dirt;
+uniform vec2 u_res;
+uniform float u_alive;
+uniform float u_halo;
+uniform float u_time;
+uniform vec2 u_center;
+uniform float u_k1;
+uniform float u_k2;
+uniform float u_showGrid;
+
+vec3 bloom(vec2 uv){
+  vec2 px = 1.0 / u_res;
+  vec3 s = vec3(0.0);
+  for(int i=0;i<8;i++){
+    float a = 6.2831853 * float(i) / 8.0;
+    vec2 d = vec2(cos(a), sin(a));
+    s += textureLod(u_bright, uv + d * px * 1.5, 1.0).rgb * 0.20;
+    s += textureLod(u_bright, uv + d * px * 2.5, 2.0).rgb * 0.12;
+    s += textureLod(u_bright, uv + d * px * 4.0, 3.0).rgb * 0.08;
+  }
+  return s;
+}
+float safeAspect(vec2 res){ return res.y > 0.0 ? res.x / res.y : 1.0; }
+vec2 undistort(vec2 p, float k1, float k2){
+  vec2 u = p;
+  for(int i=0;i<3;i++){
+    float r2 = dot(u,u);
+    float f = max(1.0 + k1*r2 + k2*r2*r2, 1e-3);
+    u = p / f;
+  }
+  return u;
+}
+vec2 lensSample(vec2 uv, vec2 center, vec2 res, float k1, float k2){
+  float aspect = safeAspect(res);
+  vec2 p = (uv - center) * 2.0;
+  p.x *= aspect;
+  vec2 u = undistort(p, k1, k2);
+  u.x /= aspect;
+  return center + u * 0.5;
+}
+
+void main(){
+  vec3 phi = texture(u_phi, vUv).rgb;
+  vec2 uvSample = lensSample(vUv, u_center, u_res, u_k1, u_k2);
+  if (any(lessThan(uvSample, vec2(0.0))) || any(greaterThan(uvSample, vec2(1.0)))) {
+    frag = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+
+  float dirt = texture(u_dirt, uvSample).r;
+  vec3 bloomAll = bloom(vUv);
+  bloomAll *= mix(1.0, dirt * 1.6, 0.6 * u_alive);
+  vec3 haloText = clamp(bloomAll * (0.7 * u_alive) * u_halo, vec3(0.0), 0.06 * max(phi, vec3(0.0)) * u_alive);
+  float luma = dot(phi, vec3(0.2126, 0.7152, 0.0722));
+  float dark = smoothstep(0.35, 0.0, luma);
+  vec3 beamGlow = min(bloomAll * (mix(0.18, 0.45, dark) * u_alive), vec3(mix(0.05, 0.12, dark)));
+  vec3 colLin = phi + haloText + beamGlow;
+
+  vec3 nrm = texture(u_normal, uvSample).xyz * 2.0 - 1.0;
+  nrm = normalize(nrm * vec3(0.6, 0.6, 1.0));
+  vec3 L = normalize(vec3(0.25, 0.6, 1.0));
+  vec3 V = vec3(0.0, 0.0, 1.0);
+  vec3 H = normalize(L + V);
+  float spec = pow(max(dot(nrm, H), 0.0), 64.0);
+  float specW = smoothstep(0.2, 0.7, luma);
+  colLin += spec * (0.05 * u_alive) * specW;
+
+  float tri = fract((uvSample.x * u_res.x) / 3.0);
+  vec3 mask = normalize(vec3(
+    smoothstep(0.0, 0.33, tri),
+    smoothstep(0.33, 0.66, tri),
+    smoothstep(0.66, 1.0, tri)
+  ) + 1e-3);
+  colLin *= mix(vec3(1.0), mask * 3.0, 0.03 * u_alive);
+
+  float bn = texture(u_blue, uvSample * 8.0 + vec2(0.017 * u_time, -0.013 * u_time)).r;
+  colLin *= (1.0 + (bn - 0.5) * (0.015 * u_alive));
+
+  vec3 srgb = pow(max(colLin, vec3(0.0)), vec3(1.0 / 2.2));
+  float d = texture(u_blue, uvSample * 6.0 + vec2(0.007 * u_time, 0.011 * u_time)).r;
+  srgb += (d - 0.5) * (0.7 / 255.0);
+
+  if (u_showGrid > 0.5) {
+    vec2 grid = fract(uvSample * vec2(20.0, 12.0));
+    vec2 gridDist = min(grid, 1.0 - grid);
+    float gridLine = max(step(gridDist.x, 0.01), step(gridDist.y, 0.01));
+    vec3 gridColor = vec3(0.85, 0.95, 1.0);
+    srgb = mix(srgb, gridColor, gridLine * 0.35);
+  }
+
+  frag = vec4(clamp(srgb, 0.0, 1.0), 1.0);
+}`;
 
       const compile = (type: number, src: string) => { const sh = gl2.createShader(type)!; gl2.shaderSource(sh, src); gl2.compileShader(sh); if (!gl2.getShaderParameter(sh, gl2.COMPILE_STATUS)) { console.error(gl2.getShaderInfoLog(sh)); } return sh; };
       const vs = compile(gl2.VERTEX_SHADER, vsrc);
@@ -246,13 +686,20 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
 
       // Uniform locations
       const u1 = { tex: gl2.getUniformLocation(prog1,"u_tex"), prev: gl2.getUniformLocation(prog1,"u_prevPhi"), beamMask: gl2.getUniformLocation(prog1,"u_beamMask"), res: gl2.getUniformLocation(prog1,"u_res"), ctr: gl2.getUniformLocation(prog1,"u_center"), k1: gl2.getUniformLocation(prog1,"u_k1"), k2: gl2.getUniformLocation(prog1,"u_k2"), time: gl2.getUniformLocation(prog1,"u_time"), dt: gl2.getUniformLocation(prog1,"u_dt"), alive: gl2.getUniformLocation(prog1,"u_alive"), mains: gl2.getUniformLocation(prog1,"u_mainsHz"), decayF: gl2.getUniformLocation(prog1,"u_decayF"), beamOn: gl2.getUniformLocation(prog1,"u_beamOn"), beamPx: gl2.getUniformLocation(prog1,"u_beamPx"), modDepth: gl2.getUniformLocation(prog1,"u_modDepth"), interlace: gl2.getUniformLocation(prog1,"u_interlace") } as const;
-      const u2 = { phi: gl2.getUniformLocation(prog2,"u_phi"), bright: gl2.getUniformLocation(prog2,"u_bright"), blue: gl2.getUniformLocation(prog2,"u_blue"), normal: gl2.getUniformLocation(prog2,"u_normal"), dirt: gl2.getUniformLocation(prog2,"u_dirt"), res: gl2.getUniformLocation(prog2,"u_res"), alive: gl2.getUniformLocation(prog2,"u_alive"), halo: gl2.getUniformLocation(prog2,"u_halo"), time: gl2.getUniformLocation(prog2,"u_time"), ctr: gl2.getUniformLocation(prog2,"u_center"), k1: gl2.getUniformLocation(prog2,"u_k1"), k2: gl2.getUniformLocation(prog2,"u_k2") } as const;
+      const u2 = { phi: gl2.getUniformLocation(prog2,"u_phi"), bright: gl2.getUniformLocation(prog2,"u_bright"), blue: gl2.getUniformLocation(prog2,"u_blue"), normal: gl2.getUniformLocation(prog2,"u_normal"), dirt: gl2.getUniformLocation(prog2,"u_dirt"), res: gl2.getUniformLocation(prog2,"u_res"), alive: gl2.getUniformLocation(prog2,"u_alive"), halo: gl2.getUniformLocation(prog2,"u_halo"), time: gl2.getUniformLocation(prog2,"u_time"), ctr: gl2.getUniformLocation(prog2,"u_center"), k1: gl2.getUniformLocation(prog2,"u_k1"), k2: gl2.getUniformLocation(prog2,"u_k2"), showGrid: gl2.getUniformLocation(prog2,"u_showGrid") } as const;
 
       // Render
       const render = () => {
         const now = performance.now(); const dt = Math.max(0.0001, (now - lastRenderAtRef.current) * 0.001); lastRenderAtRef.current = now; const fps = 1.0/dt; fpsEMARef.current = fpsEMARef.current*0.9 + fps*0.1;
         if (fpsEMARef.current < 30) { if (belowSinceRef.current==null) belowSinceRef.current=now; if (!gateRef.current && belowSinceRef.current && now - belowSinceRef.current > 3000) gateRef.current = true; } else { belowSinceRef.current=null; if (gateRef.current) { if (aboveSinceRef.current==null) aboveSinceRef.current=now; if (now - aboveSinceRef.current > 1500) gateRef.current=false; } else { aboveSinceRef.current=null; } }
         const requested = reduceRef.current ? 0 : aliveRef.current; const effectiveAlive = Math.min(requested, gateRef.current ? 0.3 : 1.0);
+        const warpState = warpStateRef.current;
+        const activeWarp = warpState.enabled ? warpState.current : ({ k1: 0, k2: 0 } as WarpCoefficients);
+        const k1 = activeWarp.k1;
+        const k2 = activeWarp.k2;
+        const showGrid = warpState.showGrid ? 1.0 : 0.0;
+
+        maybeLogWarpDiagnostics(cw, ch);
 
         // Pass 1
         gl2.useProgram(prog1);
@@ -283,10 +730,10 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         gl2.activeTexture(gl2.TEXTURE2); gl2.bindTexture(gl2.TEXTURE_2D, blueTex); if (u2.blue) gl2.uniform1i(u2.blue, 2);
         gl2.activeTexture(gl2.TEXTURE3); gl2.bindTexture(gl2.TEXTURE_2D, normalTex); if (u2.normal) gl2.uniform1i(u2.normal, 3);
         gl2.activeTexture(gl2.TEXTURE4); gl2.bindTexture(gl2.TEXTURE_2D, dirtTex); if (u2.dirt) gl2.uniform1i(u2.dirt, 4);
-        if (u2.res) gl2.uniform2f(u2.res, cw, ch); if (u2.alive) gl2.uniform1f(u2.alive, effectiveAlive); if (u2.halo) gl2.uniform1f(u2.halo, haloRef.current); if (u2.time) gl2.uniform1f(u2.time, now*0.001); if (u2.ctr) gl2.uniform2f(u2.ctr, center.x, center.y); if (u2.k1) gl2.uniform1f(u2.k1, k1); if (u2.k2) gl2.uniform1f(u2.k2, k2);
+        if (u2.res) gl2.uniform2f(u2.res, cw, ch); if (u2.alive) gl2.uniform1f(u2.alive, effectiveAlive); if (u2.halo) gl2.uniform1f(u2.halo, haloRef.current); if (u2.time) gl2.uniform1f(u2.time, now*0.001); if (u2.ctr) gl2.uniform2f(u2.ctr, center.x, center.y); if (u2.k1) gl2.uniform1f(u2.k1, k1); if (u2.k2) gl2.uniform1f(u2.k2, k2); if (u2.showGrid) gl2.uniform1f(u2.showGrid, showGrid);
         gl2.drawArrays(gl2.TRIANGLES, 0, 6);
 
-        if (now - lastStateEmitRef.current > 500) { lastStateEmitRef.current = now; try { window.dispatchEvent(new CustomEvent("crt-state", { detail: { alive: aliveRef.current, effectiveAlive, mainsHz: mainsHzRef.current, fps: fpsEMARef.current, gated: gateRef.current, reduced: reduceRef.current, mode: "HQ", buffers: (use16F?"rgba16f":"rgba8")+"+mrt+mip", decayMs: { ...decayMsRef.current }, halo: haloRef.current, beam: { on: beamOnRef.current, beamPx: beamPxRef.current, modDepth: beamModDepthRef.current, interlace: beamInterlaceRef.current } } })); } catch {} }
+        if (now - lastStateEmitRef.current > 500) { lastStateEmitRef.current = now; try { window.dispatchEvent(new CustomEvent("crt-state", { detail: { alive: aliveRef.current, effectiveAlive, mainsHz: mainsHzRef.current, fps: fpsEMARef.current, gated: gateRef.current, reduced: reduceRef.current, mode: "HQ", buffers: (use16F?"rgba16f":"rgba8")+"+mrt+mip", decayMs: { ...decayMsRef.current }, halo: haloRef.current, beam: { on: beamOnRef.current, beamPx: beamPxRef.current, modDepth: beamModDepthRef.current, interlace: beamInterlaceRef.current }, warp: { enabled: warpState.enabled, k1, k2, slider: warpState.slider, showGrid: warpState.showGrid } } })); } catch {} }
 
         const t=readPhi; readPhi=writePhi; writePhi=t;
         if (!reduceRef.current) rafRef.current = requestAnimationFrame(render);
@@ -389,124 +836,135 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
         gl_Position = vec4(position, 0.0, 1.0);
       }
     `;
-    const fragSrc = `
-      precision mediump float;
-      varying vec2 vUv;
-      uniform sampler2D u_tex;
-      uniform vec2 u_res;
-      uniform vec2 u_center;
-      uniform float u_k1;
-      uniform float u_k2;
-      uniform float u_time;  // seconds
-      uniform float u_alive; // 0..1 micro-effects strength
-      uniform float u_mainsHz; // 50 or 60
-      uniform float u_motion; // 0 = reduced, 1 = animate
-      uniform float u_intensity; // global strength
-      
-      // Small hash for phase noise
-      float hash1(float x){ return fract(sin(x*127.1) * 43758.5453123); }
-      // Distort coordinates using Brown-Conrady barrel model
-      vec2 barrel(vec2 uv, float k1, float k2){
-        vec2 p = (uv - u_center) * 2.0; // roughly [-1,1]
-        // normalize to aspect so distortion is radially symmetric
-        float aspect = u_res.x / u_res.y;
-        p.x *= aspect;
-        float r2 = dot(p, p);
-        float f = 1.0 + k1 * r2 + k2 * r2 * r2;
-        p *= f;
-        p.x /= aspect;
-        return u_center + p * 0.5;
-      }
-      void main(){
-        // Slight chromatic aberration: offset R/B samples inwards/outwards
-        float dr = 0.0002 * u_intensity; // very subtle for readability
-        vec2 baseUv = vUv; // snapshot uploaded with screen-space orientation
-        vec2 uvR = barrel(baseUv + vec2( dr, 0.0), u_k1, u_k2);
-        vec2 uvG = barrel(baseUv,                  u_k1, u_k2);
-        vec2 uvB = barrel(baseUv + vec2(-dr, 0.0), u_k1, u_k2);
-        
-        // Time-based micro-effects (horizontal)
-        float phase = 6.2831853 * u_mainsHz * u_time;
-        float line = gl_FragCoord.y;
-        // Effect 1: mains-rate beam jitter
-        float jitter = (0.25 / u_res.x) * sin(phase + line * 0.015) * u_alive;
-        // Effect 2: scanline phase noise (slow drift + tiny hashed jitter)
-        float drift = sin(phase * 0.07 + line * 0.011) * (0.15 / u_res.x) * u_alive;
-        float t2 = floor(u_time * 2.0);
-        float n = hash1(line + t2 * 31.7);
-        drift += (n - 0.5) * (0.05 / u_res.x) * u_alive; // ≤ 0.05px extra
-        float dX = clamp(jitter + drift, -0.4 / u_res.x, 0.4 / u_res.x);
-        uvR.x += dX; uvG.x += dX; uvB.x += dX;
-        // Clamp to avoid wrapping
-        uvR = clamp(uvR, vec2(0.0), vec2(1.0));
-        uvG = clamp(uvG, vec2(0.0), vec2(1.0));
-        uvB = clamp(uvB, vec2(0.0), vec2(1.0));
-        vec3 col;
-        col.r = texture2D(u_tex, uvR).r;
-        col.g = texture2D(u_tex, uvG).g;
-        col.b = texture2D(u_tex, uvB).b;
+      const fragSrc = `
+        precision mediump float;
+        varying vec2 vUv;
+        uniform sampler2D u_tex;
+        uniform vec2 u_res;
+        uniform vec2 u_center;
+        uniform float u_k1;
+        uniform float u_k2;
+        uniform float u_time;  // seconds
+        uniform float u_alive; // 0..1 micro-effects strength
+        uniform float u_mainsHz; // 50 or 60
+        uniform float u_motion; // 0 = reduced, 1 = animate
+        uniform float u_intensity; // global strength
+        uniform float u_showGrid;
 
-        // Effect 3: triad shimmer (mix at low weight)
-        if (u_alive > 0.0005) {
-          float triad = fract((uvG.x * u_res.x) / 3.0);
-          float sPx = 0.002 * sin(phase * 0.5 + triad * 6.2831853) * u_alive; // very subtle
-          float px = 1.0 / u_res.x;
-          float rShift = (sPx + 0.15) * px;
-          float bShift = -(sPx + 0.15) * px;
-          vec3 triadCol;
-          triadCol.r = texture2D(u_tex, clamp(uvG + vec2(rShift, 0.0), vec2(0.0), vec2(1.0))).r;
-          triadCol.g = col.g;
-          triadCol.b = texture2D(u_tex, clamp(uvG + vec2(bShift, 0.0), vec2(0.0), vec2(1.0))).b;
-          float w = 0.20 * u_alive; // keep luminance modulation small
-          col = mix(col, triadCol, w);
+        float hash1(float x){ return fract(sin(x*127.1) * 43758.5453123); }
+        float safeAspect(vec2 res){ return res.y > 0.0 ? res.x / res.y : 1.0; }
+        vec2 undistort(vec2 p, float k1, float k2){
+          vec2 u = p;
+          for(int i=0;i<3;i++){
+            float r2 = dot(u,u);
+            float f = max(1.0 + k1*r2 + k2*r2*r2, 1e-3);
+            u = p / f;
+          }
+          return u;
+        }
+        vec2 lensSample(vec2 uv, vec2 center, vec2 res, float k1, float k2){
+          float aspect = safeAspect(res);
+          vec2 p = (uv - center) * 2.0;
+          p.x *= aspect;
+          vec2 u = undistort(p, k1, k2);
+          u.x /= aspect;
+          return center + u * 0.5;
+        }
+        bool inBounds(vec2 uv){
+          return all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
         }
 
-        // CRT effects in shader (subtle by default)
-        float I = u_intensity; // shorthand
+        void main(){
+          float dr = 0.0002 * u_intensity;
+          vec2 uvBase = vUv;
+          vec2 uvR = lensSample(uvBase + vec2( dr, 0.0), u_center, u_res, u_k1, u_k2);
+          vec2 uvG = lensSample(uvBase,                  u_center, u_res, u_k1, u_k2);
+          vec2 uvB = lensSample(uvBase + vec2(-dr, 0.0), u_center, u_res, u_k1, u_k2);
 
-        // Scanlines (horizontal darkening)
-        float pxY = uvG.y * u_res.y;
-        float scan = 0.5 + 0.5 * cos(6.28318 * (pxY / 3.0)); // 3px period
-        float scanAmp = 0.06 * I;
-        col *= mix(1.0 - scanAmp, 1.0, scan);
+          float phase = 6.2831853 * u_mainsHz * u_time;
+          float line = gl_FragCoord.y;
+          float jitter = (0.25 / u_res.x) * sin(phase + line * 0.015) * u_alive;
+          float drift = sin(phase * 0.07 + line * 0.011) * (0.15 / u_res.x) * u_alive;
+          float t2 = floor(u_time * 2.0);
+          float n = hash1(line + t2 * 31.7);
+          drift += (n - 0.5) * (0.05 / u_res.x) * u_alive;
+          float dX = clamp(jitter + drift, -0.4 / u_res.x, 0.4 / u_res.x);
+          uvR.x += dX; uvG.x += dX; uvB.x += dX;
 
-        // Aperture grille (vertical faint dark stripes)
-        float pxX = uvG.x * u_res.x;
-        float grille = 0.5 + 0.5 * cos(6.28318 * (pxX / 3.0));
-        float grilleAmp = 0.04 * I;
-        col *= mix(1.0 - grilleAmp, 1.0, grille);
+          bool inR = inBounds(uvR);
+          bool inG = inBounds(uvG);
+          bool inB = inBounds(uvB);
+          if (!inG) {
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+            return;
+          }
 
-        // Rolling band (very subtle, moves only if motion enabled)
-        float bandAmp = 0.04 * I;
-        float pos = fract(uvG.y + (u_motion * u_time * 0.03));
-        float band = smoothstep(0.45, 0.5, pos) * smoothstep(0.55, 0.5, pos);
-        col *= 1.0 + bandAmp * band;
+          vec3 col = vec3(0.0);
+          if (inR) col.r = texture2D(u_tex, uvR).r;
+          if (inG) col.g = texture2D(u_tex, uvG).g;
+          if (inB) col.b = texture2D(u_tex, uvB).b;
 
-        // Vignette / edge falloff
-        vec2 c = (uvG - u_center) * vec2(u_res.x / u_res.y, 1.0);
-        float r = length(c);
-        float vig = smoothstep(0.9, 0.2, r); // 1 center -> 0 edges
-        float vigAmp = 0.06 * I;
-        col *= mix(1.0 - vigAmp, 1.0, vig);
+          if (u_alive > 0.0005) {
+            float triad = fract((uvG.x * u_res.x) / 3.0);
+            float sPx = 0.002 * sin(phase * 0.5 + triad * 6.2831853) * u_alive;
+            float px = 1.0 / u_res.x;
+            float rShift = (sPx + 0.15) * px;
+            float bShift = -(sPx + 0.15) * px;
+            vec3 triadCol;
+            triadCol.r = texture2D(u_tex, clamp(uvG + vec2(rShift, 0.0), vec2(0.0), vec2(1.0))).r;
+            triadCol.g = col.g;
+            triadCol.b = texture2D(u_tex, clamp(uvG + vec2(bShift, 0.0), vec2(0.0), vec2(1.0))).b;
+            float w = 0.20 * u_alive;
+            col = mix(col, triadCol, w);
+          }
 
-        // Refresh flicker (tiny amplitude)
-        float flick = 1.0 + (0.02 * I) * (u_motion * (sin(u_time*8.0) * 0.5));
-        col *= flick;
+          float I = u_intensity;
 
-        // Mild unsharp mask to restore crisp glyph edges
-        vec2 texel = 1.0 / u_res;
-        vec3 c0 = texture2D(u_tex, uvG).rgb;
-        vec3 c1 = texture2D(u_tex, clamp(uvG + vec2(texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
-        vec3 c2 = texture2D(u_tex, clamp(uvG + vec2(-texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
-        vec3 c3 = texture2D(u_tex, clamp(uvG + vec2(0.0, texel.y), vec2(0.0), vec2(1.0))).rgb;
-        vec3 c4 = texture2D(u_tex, clamp(uvG + vec2(0.0, -texel.y), vec2(0.0), vec2(1.0))).rgb;
-        vec3 blur = (c0 + c1 + c2 + c3 + c4) * 0.2;
-        float sharpen = 0.10; // keep subtle to avoid halos
-        col = clamp(col * (1.0 + sharpen) - blur * sharpen, 0.0, 1.0);
+          float pxY = uvG.y * u_res.y;
+          float scan = 0.5 + 0.5 * cos(6.28318 * (pxY / 3.0));
+          float scanAmp = 0.06 * I;
+          col *= mix(1.0 - scanAmp, 1.0, scan);
 
-        gl_FragColor = vec4(col, 1.0);
-      }
-    `;
+          float pxX = uvG.x * u_res.x;
+          float grille = 0.5 + 0.5 * cos(6.28318 * (pxX / 3.0));
+          float grilleAmp = 0.04 * I;
+          col *= mix(1.0 - grilleAmp, 1.0, grille);
+
+          float bandAmp = 0.04 * I;
+          float pos = fract(uvG.y + (u_motion * u_time * 0.03));
+          float band = smoothstep(0.45, 0.5, pos) * smoothstep(0.55, 0.5, pos);
+          col *= 1.0 + bandAmp * band;
+
+          vec2 c = (uvG - u_center) * vec2(u_res.x / u_res.y, 1.0);
+          float r = length(c);
+          float vig = smoothstep(0.9, 0.2, r);
+          float vigAmp = 0.06 * I;
+          col *= mix(1.0 - vigAmp, 1.0, vig);
+
+          float flick = 1.0 + (0.02 * I) * (u_motion * (sin(u_time*8.0) * 0.5));
+          col *= flick;
+
+          vec2 texel = 1.0 / u_res;
+          vec3 c0 = texture2D(u_tex, uvG).rgb;
+          vec3 c1 = texture2D(u_tex, clamp(uvG + vec2(texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+          vec3 c2 = texture2D(u_tex, clamp(uvG + vec2(-texel.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+          vec3 c3 = texture2D(u_tex, clamp(uvG + vec2(0.0, texel.y), vec2(0.0), vec2(1.0))).rgb;
+          vec3 c4 = texture2D(u_tex, clamp(uvG + vec2(0.0, -texel.y), vec2(0.0), vec2(1.0))).rgb;
+          vec3 blur = (c0 + c1 + c2 + c3 + c4) * 0.2;
+          float sharpen = 0.10;
+          col = clamp(col * (1.0 + sharpen) - blur * sharpen, 0.0, 1.0);
+
+          if (u_showGrid > 0.5) {
+            vec2 grid = fract(uvG * vec2(20.0, 12.0));
+            vec2 gridDist = min(grid, 1.0 - grid);
+            float gridLine = max(step(gridDist.x, 0.01), step(gridDist.y, 0.01));
+            vec3 gridColor = vec3(0.85, 0.95, 1.0);
+            col = mix(col, gridColor, gridLine * 0.35);
+          }
+
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `;
 
     const compile = (type: number, src: string) => {
       const sh = gl.createShader(type)!;
@@ -553,15 +1011,24 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     const mainsLoc = gl.getUniformLocation(prog, "u_mainsHz");
     const motionLoc = gl.getUniformLocation(prog, "u_motion");
     const intensityLoc = gl.getUniformLocation(prog, "u_intensity");
+    const showGridLoc = gl.getUniformLocation(prog, "u_showGrid");
     if (texLoc) gl.uniform1i(texLoc, 0);
-    if (k1Loc) gl.uniform1f(k1Loc, k1);
-    if (k2Loc) gl.uniform1f(k2Loc, k2);
     if (ctrLoc) gl.uniform2f(ctrLoc, center.x, center.y);
     if (motionLoc) gl.uniform1f(motionLoc, reduceRef.current ? 0.0 : 1.0);
     const cssIntensity = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--crt-intensity")) || 0.1;
     if (intensityLoc) gl.uniform1f(intensityLoc, cssIntensity);
     if (aliveLoc) gl.uniform1f(aliveLoc, 0.0);
     if (mainsLoc) gl.uniform1f(mainsLoc, mainsHzRef.current || 60);
+    const applyWarpUniforms = () => {
+      const warpState = warpStateRef.current;
+      const activeWarp = warpState.enabled
+        ? warpState.current
+        : ({ k1: 0, k2: 0 } as WarpCoefficients);
+      if (k1Loc) gl.uniform1f(k1Loc, activeWarp.k1);
+      if (k2Loc) gl.uniform1f(k2Loc, activeWarp.k2);
+      if (showGridLoc) gl.uniform1f(showGridLoc, warpState.showGrid ? 1.0 : 0.0);
+    };
+    applyWarpUniforms();
 
     // Texture
     const tex = gl.createTexture();
@@ -613,6 +1080,12 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       const effectiveAlive = Math.min(requested, gateRef.current ? 0.3 : 1.0);
       if (aliveLoc) gl.uniform1f(aliveLoc, effectiveAlive);
       if (mainsLoc) gl.uniform1f(mainsLoc, mainsHzRef.current || 60);
+      applyWarpUniforms();
+      maybeLogWarpDiagnostics(canvas.width, canvas.height);
+      const warpState = warpStateRef.current;
+      const activeWarp = warpState.enabled
+        ? warpState.current
+        : ({ k1: 0, k2: 0 } as WarpCoefficients);
 
       // Throttled state emission for dev console (every ~500ms)
       if (now - lastStateEmitRef.current > 500) {
@@ -632,6 +1105,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
                 decayMs: { ...decayMsRef.current },
                 halo: haloRef.current,
                 beam: { on: beamOnRef.current, beamPx: beamPxRef.current, modDepth: beamModDepthRef.current, interlace: beamInterlaceRef.current },
+                warp: { enabled: warpState.enabled, k1: activeWarp.k1, k2: activeWarp.k2, slider: warpState.slider, showGrid: warpState.showGrid },
               },
             })
           );
@@ -789,43 +1263,31 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       canvas.removeEventListener("webglcontextrestored", onContextRestored as EventListener);
       if (dbgTimer) window.clearInterval(dbgTimer);
     };
-  }, [k1, k2, center.x, center.y]);
+  }, [center.x, center.y]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = canvas?.parentElement as HTMLElement | null;
     if (!canvas || !container) return;
 
-    const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
-    const applyBarrel = (ux: number, uy: number, aspect: number) => {
-      let px = (ux - center.x) * 2.0;
-      let py = (uy - center.y) * 2.0;
-      px *= aspect;
-      const r2 = px * px + py * py;
-      const gain = 1.0 + k1 * r2 + k2 * r2 * r2;
-      px *= gain;
-      py *= gain;
-      px /= aspect;
-      return {
-        x: center.x + px * 0.5,
-        y: center.y + py * 0.5,
-      };
-    };
-
-    const remapCoordinates = (evt: MouseEvent) => {
+    const remapCoordinates = (evt: MouseEvent | PointerEvent | WheelEvent) => {
       const rect = container.getBoundingClientRect();
       const { width, height, left, top } = rect;
       if (!width || !height) return null;
 
-      let viewX = (evt.clientX - left) / width;
-      let viewY = (evt.clientY - top) / height;
-      if (!Number.isFinite(viewX) || !Number.isFinite(viewY)) return null;
+      const viewXRaw = (evt.clientX - left) / width;
+      const viewYRaw = (evt.clientY - top) / height;
+      if (!Number.isFinite(viewXRaw) || !Number.isFinite(viewYRaw)) return null;
 
-      viewX = clamp01(viewX);
-      viewY = clamp01(viewY);
+      const viewX = clamp01(viewXRaw);
+      const viewY = clamp01(viewYRaw);
 
-      const aspect = width / height;
-      const sample = applyBarrel(viewX, 1 - viewY, aspect);
+      const aspect = safeAspectPx(width, height);
+      const warpState = warpStateRef.current;
+      const coeffs = warpState.enabled
+        ? warpState.current
+        : ({ k1: 0, k2: 0 } as WarpCoefficients);
+      const sample = lensSample({ x: viewX, y: 1 - viewY }, centerRef.current, aspect, coeffs);
 
       const domX = clamp01(sample.x);
       const domYShader = clamp01(sample.y);
@@ -863,42 +1325,82 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
     };
 
     const dispatchPointer = (evt: PointerEvent) => {
+      if (!evt.isTrusted) return;
+      const guard = pointerDispatchingRef.current;
+      if (guard.has(evt.pointerId)) return;
       const mapped = remapCoordinates(evt);
       if (!mapped) return;
       const target = pickTarget(mapped.clientX, mapped.clientY);
       if (!target) return;
 
-      const init: PointerEventInit = {
-        bubbles: evt.bubbles,
-        cancelable: evt.cancelable,
-        pointerId: evt.pointerId,
-        pointerType: evt.pointerType,
-        isPrimary: evt.isPrimary,
-        width: evt.width,
-        height: evt.height,
-        pressure: evt.pressure,
-        tangentialPressure: evt.tangentialPressure,
-        tiltX: evt.tiltX,
-        tiltY: evt.tiltY,
-        twist: evt.twist,
-        detail: evt.detail,
-        button: evt.button,
-        buttons: evt.buttons,
-        ctrlKey: evt.ctrlKey,
-        shiftKey: evt.shiftKey,
-        altKey: evt.altKey,
-        metaKey: evt.metaKey,
-        clientX: mapped.clientX,
-        clientY: mapped.clientY,
-        screenX: mapped.screenX,
-        screenY: mapped.screenY,
-        relatedTarget: null,
-      };
-
+      guard.add(evt.pointerId);
       try {
-        target.dispatchEvent(new PointerEvent(evt.type, init));
-      } catch {
-        const fallbackInit: MouseEventInit = {
+        const init: PointerEventInit = {
+          bubbles: evt.bubbles,
+          cancelable: evt.cancelable,
+          pointerId: evt.pointerId,
+          pointerType: evt.pointerType,
+          isPrimary: evt.isPrimary,
+          width: evt.width,
+          height: evt.height,
+          pressure: evt.pressure,
+          tangentialPressure: evt.tangentialPressure,
+          tiltX: evt.tiltX,
+          tiltY: evt.tiltY,
+          twist: evt.twist,
+          detail: evt.detail,
+          button: evt.button,
+          buttons: evt.buttons,
+          ctrlKey: evt.ctrlKey,
+          shiftKey: evt.shiftKey,
+          altKey: evt.altKey,
+          metaKey: evt.metaKey,
+          clientX: mapped.clientX,
+          clientY: mapped.clientY,
+          screenX: mapped.screenX,
+          screenY: mapped.screenY,
+          relatedTarget: null,
+        };
+
+        try {
+          target.dispatchEvent(new PointerEvent(evt.type, init));
+        } catch {
+          const fallbackInit: MouseEventInit = {
+            bubbles: evt.bubbles,
+            cancelable: evt.cancelable,
+            detail: evt.detail,
+            button: evt.button,
+            buttons: evt.buttons,
+            ctrlKey: evt.ctrlKey,
+            shiftKey: evt.shiftKey,
+            altKey: evt.altKey,
+            metaKey: evt.metaKey,
+            clientX: mapped.clientX,
+            clientY: mapped.clientY,
+            screenX: mapped.screenX,
+            screenY: mapped.screenY,
+          };
+          target.dispatchEvent(new MouseEvent(evt.type, fallbackInit));
+        }
+      } finally {
+        guard.delete(evt.pointerId);
+      }
+
+      evt.preventDefault();
+      evt.stopImmediatePropagation();
+    };
+
+    const dispatchMouse = (evt: MouseEvent) => {
+      if (!evt.isTrusted) return;
+      if (mouseDispatchingRef.current) return;
+      const mapped = remapCoordinates(evt);
+      if (!mapped) return;
+      const target = pickTarget(mapped.clientX, mapped.clientY);
+      if (!target) return;
+
+      mouseDispatchingRef.current = true;
+      try {
+        const init: MouseEventInit = {
           bubbles: evt.bubbles,
           cancelable: evt.cancelable,
           detail: evt.detail,
@@ -913,63 +1415,45 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
           screenX: mapped.screenX,
           screenY: mapped.screenY,
         };
-        target.dispatchEvent(new MouseEvent(evt.type, fallbackInit));
+        target.dispatchEvent(new MouseEvent(evt.type, init));
+      } finally {
+        mouseDispatchingRef.current = false;
       }
 
       evt.preventDefault();
       evt.stopImmediatePropagation();
     };
 
-    const dispatchMouse = (evt: MouseEvent) => {
-      const mapped = remapCoordinates(evt);
-      if (!mapped) return;
-      const target = pickTarget(mapped.clientX, mapped.clientY);
-      if (!target) return;
-
-      const init: MouseEventInit = {
-        bubbles: evt.bubbles,
-        cancelable: evt.cancelable,
-        detail: evt.detail,
-        button: evt.button,
-        buttons: evt.buttons,
-        ctrlKey: evt.ctrlKey,
-        shiftKey: evt.shiftKey,
-        altKey: evt.altKey,
-        metaKey: evt.metaKey,
-        clientX: mapped.clientX,
-        clientY: mapped.clientY,
-        screenX: mapped.screenX,
-        screenY: mapped.screenY,
-      };
-      target.dispatchEvent(new MouseEvent(evt.type, init));
-
-      evt.preventDefault();
-      evt.stopImmediatePropagation();
-    };
-
     const dispatchWheel = (evt: WheelEvent) => {
+      if (!evt.isTrusted) return;
+      if (wheelDispatchingRef.current) return;
       const mapped = remapCoordinates(evt);
       if (!mapped) return;
       const target = pickTarget(mapped.clientX, mapped.clientY);
       if (!target) return;
 
-      const init: WheelEventInit = {
-        bubbles: evt.bubbles,
-        cancelable: evt.cancelable,
-        deltaX: evt.deltaX,
-        deltaY: evt.deltaY,
-        deltaZ: evt.deltaZ,
-        deltaMode: evt.deltaMode,
-        ctrlKey: evt.ctrlKey,
-        shiftKey: evt.shiftKey,
-        altKey: evt.altKey,
-        metaKey: evt.metaKey,
-        clientX: mapped.clientX,
-        clientY: mapped.clientY,
-        screenX: mapped.screenX,
-        screenY: mapped.screenY,
-      };
-      target.dispatchEvent(new WheelEvent("wheel", init));
+      wheelDispatchingRef.current = true;
+      try {
+        const init: WheelEventInit = {
+          bubbles: evt.bubbles,
+          cancelable: evt.cancelable,
+          deltaX: evt.deltaX,
+          deltaY: evt.deltaY,
+          deltaZ: evt.deltaZ,
+          deltaMode: evt.deltaMode,
+          ctrlKey: evt.ctrlKey,
+          shiftKey: evt.shiftKey,
+          altKey: evt.altKey,
+          metaKey: evt.metaKey,
+          clientX: mapped.clientX,
+          clientY: mapped.clientY,
+          screenX: mapped.screenX,
+          screenY: mapped.screenY,
+        };
+        target.dispatchEvent(new WheelEvent("wheel", init));
+      } finally {
+        wheelDispatchingRef.current = false;
+      }
 
       evt.preventDefault();
       evt.stopImmediatePropagation();
@@ -998,7 +1482,7 @@ export default function LensWarp({ k1 = 0.012, k2 = 0.002, center = { x: 0.5, y:
       canvas.removeEventListener("wheel", dispatchWheel, true);
       canvas.style.pointerEvents = previousPointerEvents;
     };
-  }, [k1, k2, center.x, center.y]);
+  }, [center.x, center.y]);
 
   return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot data-section={Sections.LENS_WARP_CANVAS} />;
 }

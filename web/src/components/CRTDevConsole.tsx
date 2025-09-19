@@ -4,7 +4,13 @@
 // Exposes window.CRT with get/set helpers in development builds.
 
 import { useEffect } from "react";
-import { setCRTAlive, setPhosphor } from "@/components/LensWarp";
+import {
+  setCRTAlive,
+  setPhosphor,
+  setCRTWarpSlider,
+  setCRTWarpEnabled,
+  setCRTWarpGrid,
+} from "@/components/LensWarp";
 
 type CRTState = {
   alive: number;
@@ -40,6 +46,10 @@ type CRTApi = {
   mode: (m: 'HQ'|'LQ') => void;
   beam: (opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) => CRTState;
   debug: (on: boolean, persist?: boolean) => void;
+  warpSlider: (s: number) => CRTState;
+  warpEnabled: (enabled: boolean) => CRTState;
+  warpOff: () => CRTState;
+  warpGrid: (show: boolean) => CRTState;
 };
 
 declare global {
@@ -66,6 +76,10 @@ export default function CRTDevConsole() {
           `window.CRT.phosphor({ rMs,gMs,bMs,halo }) -> set decay (s) and halo gain\n`
           + `window.CRT.mode('HQ'|'LQ')           -> force mode and reload\n`
           + `window.CRT.beam({ on, beamPx, modDepth, interlace }) -> beam controls (HQ only)\n`
+          + `window.CRT.warpSlider(0..1)         -> set warp strength slider\n`
+          + `window.CRT.warpEnabled(true|false)  -> toggle warp on/off\n`
+          + `window.CRT.warpOff()                -> disable warp immediately\n`
+          + `window.CRT.warpGrid(true|false)     -> show sampling grid overlay\n`
           + `window.CRT.debug(true|false[, persist]) -> toggle diagnostic logging\n`
         );
       },
@@ -89,6 +103,10 @@ export default function CRTDevConsole() {
       mode(m: 'HQ'|'LQ') { try { localStorage.setItem('crt-mode', m); } catch {} location.reload(); },
       beam(opts: { on?: boolean; beamPx?: number; modDepth?: number; interlace?: boolean }) { window.dispatchEvent(new CustomEvent('crt-beam', { detail: opts })); return api.get(); },
       debug(on: boolean, persist?: boolean) { window.dispatchEvent(new CustomEvent('crt-debug', { detail: { debug: !!on, persist: !!persist } })); },
+      warpSlider(s: number) { setCRTWarpSlider(s); return api.get(); },
+      warpEnabled(enabled: boolean) { setCRTWarpEnabled(enabled); return api.get(); },
+      warpOff() { setCRTWarpEnabled(false); setCRTWarpSlider(0); return api.get(); },
+      warpGrid(show: boolean) { setCRTWarpGrid(show); return api.get(); },
     };
 
     try {
