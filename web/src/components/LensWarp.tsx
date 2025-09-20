@@ -1484,6 +1484,432 @@ void main(){
     };
   }, [center.x, center.y]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = canvas?.parentElement as HTMLElement | null;
+    if (!canvas || !container) return;
+
+    type HoverMap = Map<number, Element | null>;
+    type PointerInfo = { target: Element | null; button: number; pointerType: string };
+    type Coords = { clientX: number; clientY: number; normX: number; normY: number; inside: boolean };
+
+    const pointerCaptures = new Map<number, Element>();
+    const pointerDown = new Map<number, PointerInfo>();
+    const hoverTargets: HoverMap = new Map();
+    const hoveredElements = new Set<Element>();
+
+    let lastClickTarget: Element | null = null;
+    let lastClickButton = -1;
+    let lastClickTime = 0;
+    let lastClickDetail = 0;
+
+    const clamp = (v: number, mn: number, mx: number) => Math.min(Math.max(v, mn), mx);
+
+    const computeCoords = (clientX: number, clientY: number): Coords => {
+      const rect = container.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        return { clientX, clientY, normX: 0, normY: 0, inside: false };
+      }
+      const normX = (clientX - rect.left) / rect.width;
+      const normY = (clientY - rect.top) / rect.height;
+      const inside = normX >= 0 && normX <= 1 && normY >= 0 && normY <= 1;
+      if (!inside) {
+        return { clientX, clientY, normX, normY, inside: false };
+      }
+      const dxOut = normX - center.x;
+      const dyOut = normY - center.y;
+      const aspect = rect.width / rect.height || 1;
+      let dx = dxOut;
+      let dy = dyOut;
+      for (let i = 0; i < 5; i += 1) {
+        const dxAspect = dx * aspect;
+        const r2 = 4 * (dxAspect * dxAspect + dy * dy);
+        const f = 1 + k1 * r2 + k2 * r2 * r2;
+        if (!Number.isFinite(f) || f === 0) {
+          break;
+        }
+        dx = dxOut / f;
+        dy = dyOut / f;
+      }
+      const nx = clamp(center.x + dx, 0, 1);
+      const ny = clamp(center.y + dy, 0, 1);
+      return {
+        clientX: rect.left + nx * rect.width,
+        clientY: rect.top + ny * rect.height,
+        normX: nx,
+        normY: ny,
+        inside: true,
+      };
+    };
+
+    const pickTarget = (coords: Coords): Element | null => {
+      const prev = canvas.style.pointerEvents;
+      canvas.style.pointerEvents = "none";
+      const el = document.elementFromPoint(coords.clientX, coords.clientY) as Element | null;
+      canvas.style.pointerEvents = prev;
+      return el;
+    };
+
+    const basePointerInit = (event: PointerEvent, coords: Coords): PointerEventInit => {
+      const dx = coords.clientX - event.clientX;
+      const dy = coords.clientY - event.clientY;
+      const anyEvent = event as unknown as { tangentialPressure?: number; altitudeAngle?: number; azimuthAngle?: number };
+      return {
+        pointerId: event.pointerId,
+        pointerType: event.pointerType,
+        isPrimary: event.isPrimary,
+        button: event.button,
+        buttons: event.buttons,
+        width: event.width,
+        height: event.height,
+        pressure: event.pressure,
+        tangentialPressure: anyEvent.tangentialPressure ?? 0,
+        tiltX: event.tiltX,
+        tiltY: event.tiltY,
+        twist: event.twist ?? 0,
+        altitudeAngle: anyEvent.altitudeAngle,
+        azimuthAngle: anyEvent.azimuthAngle,
+        clientX: coords.clientX,
+        clientY: coords.clientY,
+        screenX: event.screenX + dx,
+        screenY: event.screenY + dy,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      } satisfies PointerEventInit;
+    };
+
+    const dispatchPointer = (
+      type: string,
+      target: Element | null,
+      event: PointerEvent,
+      coords: Coords,
+      opts?: { bubbles?: boolean; cancelable?: boolean; relatedTarget?: Element | null }
+    ) => {
+      if (!target) return null;
+      const init = basePointerInit(event, coords);
+      if (typeof opts?.bubbles === "boolean") init.bubbles = opts.bubbles;
+      if (typeof opts?.cancelable === "boolean") init.cancelable = opts.cancelable;
+      init.relatedTarget = opts?.relatedTarget ?? null;
+      const pointerEvent = new PointerEvent(type, init);
+      target.dispatchEvent(pointerEvent);
+      return pointerEvent;
+    };
+
+    const baseMouseInit = (
+      event: PointerEvent | MouseEvent,
+      coords: Coords,
+      detail: number,
+      overrides?: { button?: number; buttons?: number; relatedTarget?: Element | null; bubbles?: boolean; cancelable?: boolean }
+    ): MouseEventInit => {
+      const dx = coords.clientX - event.clientX;
+      const dy = coords.clientY - event.clientY;
+      const button = overrides?.button ?? event.button;
+      return {
+        detail,
+        button,
+        buttons: overrides?.buttons ?? event.buttons,
+        clientX: coords.clientX,
+        clientY: coords.clientY,
+        screenX: event.screenX + dx,
+        screenY: event.screenY + dy,
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+        relatedTarget: overrides?.relatedTarget ?? null,
+        bubbles: overrides?.bubbles ?? true,
+        cancelable: overrides?.cancelable ?? true,
+        composed: true,
+      } satisfies MouseEventInit;
+    };
+
+    const dispatchMouse = (
+      type: string,
+      target: Element | null,
+      event: PointerEvent,
+      coords: Coords,
+      detail = 0,
+      overrides?: { button?: number; buttons?: number; relatedTarget?: Element | null; bubbles?: boolean; cancelable?: boolean }
+    ) => {
+      if (!target) return null;
+      const init = baseMouseInit(event, coords, detail, overrides);
+      const mouseEvent = new MouseEvent(type, init);
+      target.dispatchEvent(mouseEvent);
+      return mouseEvent;
+    };
+
+    const getPath = (el: Element | null) => {
+      const path: Element[] = [];
+      let node: Element | null = el;
+      while (node) {
+        path.push(node);
+        if (node === container) break;
+        node = node.parentElement;
+      }
+      return path;
+    };
+
+    const updateHover = (pointerId: number, nextTarget: Element | null, event: PointerEvent, coords: Coords) => {
+      const prevTarget = hoverTargets.get(pointerId) ?? null;
+      if (prevTarget === nextTarget) return;
+
+      const prevPath = getPath(prevTarget);
+      const nextPath = getPath(nextTarget);
+      const prevSet = new Set(prevPath);
+      const nextSet = new Set(nextPath);
+
+      for (const el of prevPath) {
+        if (!nextSet.has(el)) {
+          el.removeAttribute("data-crt-hover");
+          hoveredElements.delete(el);
+          dispatchPointer("pointerout", el, event, coords, { relatedTarget: nextTarget });
+          if (event.pointerType === "mouse") {
+            dispatchMouse("mouseout", el, event, coords, 0, { relatedTarget: nextTarget });
+          }
+          dispatchPointer("pointerleave", el, event, coords, { bubbles: false, cancelable: false, relatedTarget: nextTarget });
+          if (event.pointerType === "mouse") {
+            dispatchMouse("mouseleave", el, event, coords, 0, { bubbles: false, cancelable: false, relatedTarget: nextTarget });
+          }
+        }
+      }
+
+      for (let i = nextPath.length - 1; i >= 0; i -= 1) {
+        const el = nextPath[i];
+        if (!hoveredElements.has(el)) {
+          el.setAttribute("data-crt-hover", "true");
+          hoveredElements.add(el);
+        }
+        if (!prevSet.has(el)) {
+          dispatchPointer("pointerenter", el, event, coords, { bubbles: false, cancelable: false, relatedTarget: prevTarget });
+          if (event.pointerType === "mouse") {
+            dispatchMouse("mouseenter", el, event, coords, 0, { bubbles: false, cancelable: false, relatedTarget: prevTarget });
+          }
+        }
+      }
+
+      if (nextTarget && nextTarget !== prevTarget) {
+        dispatchPointer("pointerover", nextTarget, event, coords, { relatedTarget: prevTarget });
+        if (event.pointerType === "mouse") {
+          dispatchMouse("mouseover", nextTarget, event, coords, 0, { relatedTarget: prevTarget });
+        }
+      }
+
+      hoverTargets.set(pointerId, nextTarget ?? null);
+    };
+
+    const recordClick = (target: Element, button: number) => {
+      const now = performance.now();
+      if (lastClickTarget && !document.contains(lastClickTarget)) {
+        lastClickTarget = null;
+        lastClickDetail = 0;
+      }
+      if (lastClickTarget === target && lastClickButton === button && now - lastClickTime < 500) {
+        lastClickDetail += 1;
+      } else {
+        lastClickDetail = 1;
+      }
+      lastClickTarget = target;
+      lastClickButton = button;
+      lastClickTime = now;
+      return lastClickDetail;
+    };
+
+    const originalSetPointerCapture = Element.prototype.setPointerCapture;
+    const originalReleasePointerCapture = Element.prototype.releasePointerCapture;
+
+    (Element.prototype as typeof Element.prototype & { setPointerCapture(id: number): void }).setPointerCapture = function patchedSet(
+      pointerId: number
+    ) {
+      pointerCaptures.set(pointerId, this as Element);
+      try {
+        originalSetPointerCapture.call(canvas, pointerId);
+      } catch {}
+    };
+
+    (Element.prototype as typeof Element.prototype & { releasePointerCapture(id: number): void }).releasePointerCapture = function patchedRelease(
+      pointerId: number
+    ) {
+      if (pointerCaptures.get(pointerId) === this) {
+        pointerCaptures.delete(pointerId);
+      }
+      try {
+        originalReleasePointerCapture.call(canvas, pointerId);
+      } catch {}
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      const hit = pickTarget(coords) ?? container;
+      updateHover(event.pointerId, hit, event, coords);
+      pointerDown.set(event.pointerId, { target: hit, button: event.button, pointerType: event.pointerType });
+      dispatchPointer("pointerdown", hit, event, coords);
+      if (event.pointerType === "mouse") {
+        dispatchMouse("mousedown", hit, event, coords, 1);
+      }
+      try {
+        canvas.setPointerCapture(event.pointerId);
+      } catch {}
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      const hit = pickTarget(coords);
+      updateHover(event.pointerId, hit, event, coords);
+      const capture = pointerCaptures.get(event.pointerId);
+      const target = capture && document.contains(capture) ? capture : hit ?? container;
+      dispatchPointer("pointermove", target, event, coords);
+      if (event.pointerType === "mouse") {
+        dispatchMouse("mousemove", target, event, coords);
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      const hit = pickTarget(coords);
+      const capture = pointerCaptures.get(event.pointerId);
+      const target = capture && document.contains(capture) ? capture : hit ?? container;
+      dispatchPointer("pointerup", target, event, coords);
+      if (event.pointerType === "mouse") {
+        dispatchMouse("mouseup", target, event, coords);
+      }
+      const info = pointerDown.get(event.pointerId);
+      pointerDown.delete(event.pointerId);
+      try {
+        canvas.releasePointerCapture(event.pointerId);
+      } catch {}
+      updateHover(event.pointerId, hit, event, coords);
+
+      const releaseTarget = hit ?? info?.target ?? target;
+      if (
+        info &&
+        releaseTarget &&
+        info.button === event.button &&
+        document.contains(releaseTarget) &&
+        info.target &&
+        document.contains(info.target) &&
+        (releaseTarget === info.target || releaseTarget.contains(info.target) || info.target.contains(releaseTarget))
+      ) {
+        const detail = recordClick(releaseTarget, event.button);
+        if (event.button === 0) {
+          const clickEvent = dispatchMouse("click", releaseTarget, event, coords, detail, { cancelable: true });
+          if (detail === 2) {
+            dispatchMouse("dblclick", releaseTarget, event, coords, 2, { cancelable: true });
+          }
+          if (clickEvent && !clickEvent.defaultPrevented && releaseTarget instanceof HTMLAnchorElement) {
+            const href = releaseTarget.href;
+            if (href) {
+              const targetName = releaseTarget.target && releaseTarget.target.trim() !== "" ? releaseTarget.target : "_self";
+              const rel = (releaseTarget.rel || "").toLowerCase();
+              const features = rel.includes("noopener") || rel.includes("noreferrer") ? "noopener" : undefined;
+              if (targetName === "_self") {
+                if (features) {
+                  window.open(href, targetName, features);
+                } else {
+                  window.location.assign(href);
+                }
+              } else {
+                window.open(href, targetName, features);
+              }
+            }
+          }
+        } else if (event.button === 1) {
+          dispatchMouse("auxclick", releaseTarget, event, coords, 1, { button: 1 });
+        } else if (event.button === 2) {
+          dispatchMouse("contextmenu", releaseTarget, event, coords, 1, { button: 2 });
+        }
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const handlePointerCancel = (event: PointerEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      const capture = pointerCaptures.get(event.pointerId);
+      const info = pointerDown.get(event.pointerId);
+      const target = capture && document.contains(capture) ? capture : info?.target ?? container;
+      dispatchPointer("pointercancel", target, event, coords, { cancelable: false });
+      pointerDown.delete(event.pointerId);
+      pointerCaptures.delete(event.pointerId);
+      try {
+        canvas.releasePointerCapture(event.pointerId);
+      } catch {}
+      updateHover(event.pointerId, null, event, coords);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+
+    const handlePointerLeave = (event: PointerEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      updateHover(event.pointerId, null, event, coords);
+    };
+
+    const handleLostCapture = (event: PointerEvent) => {
+      pointerCaptures.delete(event.pointerId);
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      const coords = computeCoords(event.clientX, event.clientY);
+      const target = pickTarget(coords) ?? container;
+      const wheelEvent = new WheelEvent("wheel", {
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        deltaZ: event.deltaZ,
+        deltaMode: event.deltaMode,
+        clientX: coords.clientX,
+        clientY: coords.clientY,
+        screenX: event.screenX + (coords.clientX - event.clientX),
+        screenY: event.screenY + (coords.clientY - event.clientY),
+        ctrlKey: event.ctrlKey,
+        shiftKey: event.shiftKey,
+        altKey: event.altKey,
+        metaKey: event.metaKey,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+      });
+      target.dispatchEvent(wheelEvent);
+      if (wheelEvent.defaultPrevented) {
+        event.preventDefault();
+      }
+    };
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+    canvas.addEventListener("pointercancel", handlePointerCancel);
+    canvas.addEventListener("pointerleave", handlePointerLeave);
+    canvas.addEventListener("lostpointercapture", handleLostCapture);
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+      canvas.removeEventListener("pointercancel", handlePointerCancel);
+      canvas.removeEventListener("pointerleave", handlePointerLeave);
+      canvas.removeEventListener("lostpointercapture", handleLostCapture);
+      canvas.removeEventListener("wheel", handleWheel);
+      Element.prototype.setPointerCapture = originalSetPointerCapture;
+      Element.prototype.releasePointerCapture = originalReleasePointerCapture;
+      hoveredElements.forEach((el) => {
+        el.removeAttribute("data-crt-hover");
+      });
+      hoverTargets.clear();
+      pointerDown.clear();
+      pointerCaptures.clear();
+    };
+  }, [k1, k2, center.x, center.y]);
+
   return <canvas ref={canvasRef} className="lens-warp" aria-hidden data-ignore-snapshot data-section={Sections.LENS_WARP_CANVAS} />;
 }
 
